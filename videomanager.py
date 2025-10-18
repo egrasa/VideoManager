@@ -119,12 +119,26 @@ class VideoManagerApp:
         )
 
         if filepath:
+            # Check for duplicates by filename and extension
+            duplicate = self.db.check_duplicate_video(filepath)
+            if duplicate:
+                result = messagebox.askyesno(
+                    'Duplicate Video',
+                    f'A video with the same name already exists:\n\n'
+                    f'Filename: {duplicate.get("filename", "Unknown")}\n'
+                    f'Path: {duplicate.get("path", "Unknown")}\n'
+                    f'Title: {duplicate.get("title", "Unknown")}\n\n'
+                    f'Do you want to add it anyway?'
+                )
+                if not result:
+                    return
+
             video_id = self.db.add_video(filepath)
             if video_id:
                 logger.info('Added video: %s', filepath)
                 self.load_videos()
                 messagebox.askokcancel('Success',
-                                    f'Video added successfully (ID: {video_id})'.format(video_id))
+                                    f'Video added successfully (ID: {video_id})')
             else:
                 messagebox.showerror('Error', 'Video already exists or could not be added')
 
@@ -140,14 +154,25 @@ class VideoManagerApp:
                 video_files.extend(Path(folder).rglob(f'*{fmt.upper()}'))
 
             added = 0
+            skipped = 0
             for filepath in video_files:
+                # Check for duplicates
+                duplicate = self.db.check_duplicate_video(str(filepath))
+                if duplicate:
+                    skipped += 1
+                    logger.info('Skipped duplicate: %s', filepath)
+                    continue
+
                 video_id = self.db.add_video(str(filepath))
                 if video_id:
                     added += 1
 
             self.load_videos()
-            messagebox.askokcancel('Success', f'Added {added} videos from the folder'.format(added))
-            logger.info('Added %d videos from %s', added, folder)
+            message = f'Added {added} videos from the folder'
+            if skipped > 0:
+                message += f'\nSkipped {skipped} duplicate videos'
+            messagebox.askokcancel('Success', message)
+            logger.info('Added %d videos from %s (skipped %d duplicates)', added, folder, skipped)
 
 
     def delete_selected(self):
@@ -240,12 +265,12 @@ Features:
 © 2025 All rights reserved
         """
 
-        messagebox.showinfo('About VideoManager', about_text)
+        messagebox.askokcancel('About VideoManager', about_text)
 
     def _show_version_info(self):
         """Show version information dialog."""
         version_info = VersionManager.get_version_string()
-        messagebox.showinfo('Version Information', version_info)
+        messagebox.askokcancel('Version Information', version_info)
 
 
 def main():
