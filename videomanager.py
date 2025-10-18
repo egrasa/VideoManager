@@ -123,7 +123,7 @@ class VideoManagerApp:
             if video_id:
                 logger.info('Added video: %s', filepath)
                 self.load_videos()
-                messagebox.showinfo('Success',
+                messagebox.askokcancel('Success',
                                     f'Video added successfully (ID: {video_id})'.format(video_id))
             else:
                 messagebox.showerror('Error', 'Video already exists or could not be added')
@@ -146,7 +146,7 @@ class VideoManagerApp:
                     added += 1
 
             self.load_videos()
-            messagebox.showinfo('Success', f'Added {added} videos from the folder'.format(added))
+            messagebox.askokcancel('Success', f'Added {added} videos from the folder'.format(added))
             logger.info('Added %d videos from %s', added, folder)
 
 
@@ -200,10 +200,10 @@ class VideoManagerApp:
         success = self.db.update_video(video_id, **updated_fields)
         if success:
             self.load_videos()
-            messagebox.showinfo('Success', 'Video updated successfully')
+            messagebox.askokcancel('Success', f'Video {video_id} updated successfully')
             logger.info('Updated video %d: %s', video_id, updated_fields)
         else:
-            messagebox.showerror('Error', 'Failed to update video')
+            messagebox.showerror('Error', f'Failed to update video {video_id}')
             logger.error('Failed to update video %d', video_id)
 
     def _create_menu_bar(self):
