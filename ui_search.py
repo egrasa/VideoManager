@@ -43,14 +43,14 @@ class UISearch:
         input_frame.pack(fill=tk.X, pady=5)
 
         ttk.Label(input_frame, text='Search:').pack(side=tk.LEFT, padx=5)
-        
+
         self.search_var = tk.StringVar()
         self.search_var.trace('w', self._on_search_input)
-        
+
         self.search_entry = ttk.Combobox(
             input_frame,
             textvariable=self.search_var,
-            width=40,
+            width=20,
             values=self.search_history,
             state='normal'
         )
@@ -70,18 +70,18 @@ class UISearch:
         ).pack(side=tk.LEFT, padx=5)
 
         # Filter options frame
-        filter_frame = ttk.LabelFrame(search_frame, text='Filter By', padding=5)
-        filter_frame.pack(fill=tk.X, pady=10)
+        #filter_frame = ttk.LabelFrame(search_frame, text='Filter By', padding=5)
+        #filter_frame.pack(fill=tk.X, pady=10)
 
         # Category filter
-        cat_frame = ttk.Frame(filter_frame)
-        cat_frame.pack(side=tk.LEFT, padx=10)
-        
-        ttk.Label(cat_frame, text='Category:').pack(side=tk.LEFT, padx=5)
-        
+        #cat_frame = ttk.Frame(filter_frame)
+        #cat_frame.pack(side=tk.LEFT, padx=10)
+
+        ttk.Label(input_frame, text='Category:').pack(side=tk.LEFT, padx=5)
+
         self.category_var = tk.StringVar(value='All')
         self.category_combo = ttk.Combobox(
-            cat_frame,
+            input_frame,
             textvariable=self.category_var,
             values=['All', 'public', 'private', 'ticket', 'password', 'special', 'clip', 'other'],
             state='readonly',
@@ -91,15 +91,15 @@ class UISearch:
         self.category_combo.bind('<<ComboboxSelected>>', lambda e: self._perform_search())
 
         # Rating filter
-        rating_frame = ttk.Frame(filter_frame)
+        rating_frame = ttk.Frame(input_frame)
         rating_frame.pack(side=tk.LEFT, padx=10)
-        
-        ttk.Label(rating_frame, text='Min Rating:').pack(side=tk.LEFT, padx=5)
-        
+
+        ttk.Label(input_frame, text='Min Rating:').pack(side=tk.LEFT, padx=5)
+
         self.rating_var = tk.IntVar(value=0)
         self.rating_var.trace('w', lambda *_: self._perform_search())
         self.rating_spin = ttk.Spinbox(
-            rating_frame,
+            input_frame,
             from_=0,
             to=5,
             textvariable=self.rating_var,
@@ -108,23 +108,21 @@ class UISearch:
         self.rating_spin.pack(side=tk.LEFT, padx=5)
 
         # Search mode
-        mode_frame = ttk.Frame(filter_frame)
-        mode_frame.pack(side=tk.LEFT, padx=10)
-        
-        ttk.Label(mode_frame, text='Search In:').pack(side=tk.LEFT, padx=5)
-        
+        #mode_frame = ttk.Frame(filter_frame)
+        #mode_frame.pack(side=tk.LEFT, padx=10)
+
+        ttk.Label(input_frame, text=' ').pack(side=tk.LEFT, padx=5)
+
         self.search_mode_var = tk.StringVar(value='all')
         search_modes = [
-            ('Title/Filename', 'title_filename'),
-            ('Filename Only', 'filename'),
-            ('Title Only', 'title'),
+            ('Filename', 'filename'),
             ('Notes', 'notes'),
             ('All Fields', 'all')
         ]
-        
+
         for text, value in search_modes:
             ttk.Radiobutton(
-                mode_frame,
+                input_frame,
                 text=text,
                 variable=self.search_mode_var,
                 value=value,
@@ -133,11 +131,11 @@ class UISearch:
 
         # Search results info
         self.info_label = ttk.Label(
-            search_frame,
+            input_frame,
             text='Enter search term or use filters',
             foreground='gray'
         )
-        self.info_label.pack(fill=tk.X, padx=5, pady=5)
+        self.info_label.pack(fill=tk.X, side='right', padx=5, pady=5)
 
     def _on_search_input(self, *_):
         """Live search as user types."""
