@@ -43,7 +43,7 @@ class UIPreview:
 
         # Initialize asynchronous thumbnail loader (3 worker threads)
         self.thumbnail_loader = ThumbnailLoader(max_workers=3)
-        
+
         # Store references to thumbnail labels for updating
         self.thumbnail_labels: Dict[str, tk.Label] = {}  # {video_path: tk.Label}
 
@@ -53,17 +53,17 @@ class UIPreview:
 
         # Grid View
         self.grid_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.grid_frame, text='Grid View')
+        self.notebook.add(self.grid_frame, text=' _ Grid View  ///  ')
         self._build_grid_view()
 
         # List View
         self.list_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.list_frame, text='List View')
+        self.notebook.add(self.list_frame, text=' _ List View  ///  ')
         self._build_list_view()
 
         # Timeline View
         self.timeline_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.timeline_frame, text='Timeline')
+        self.notebook.add(self.timeline_frame, text=' _ Timeline  ///  ')
         self._build_timeline_view()
 
     def _build_grid_view(self):
@@ -263,7 +263,8 @@ class UIPreview:
                     # Queue thumbnail for asynchronous loading
                     self.thumbnail_loader.queue_thumbnail(
                         video_path,
-                        lambda path, photo, lbl=thumb_label: self._on_thumbnail_loaded(path, photo, lbl)
+                        lambda path, photo,
+                        lbl=thumb_label: self._on_thumbnail_loaded(path, photo, lbl)
                     )
                     # Show placeholder while loading
                     placeholder = self.thumbnail_loader.get_placeholder_image()
@@ -775,14 +776,14 @@ class UIPreview:
             if not label.winfo_exists():
                 logger.debug('Label widget no longer exists, skipping update')
                 return
-            
+
             if photo:
                 # Schedule update on main thread
                 self.parent.after(0, lambda: self._update_thumbnail_on_main_thread(label, photo))
                 logger.debug('Thumbnail loaded for: %s', Path(video_path).name)
             else:
                 # Thumbnail generation failed
-                self.parent.after(0, lambda: label.config(text='[No thumbnail]', foreground='white') 
+                self.parent.after(0, lambda: label.config(text='[No thumbnail]', foreground='white')
                                           if label.winfo_exists() else None)
                 logger.warning('Failed to load thumbnail for: %s', video_path)
         except (RuntimeError, ValueError) as e:
@@ -800,7 +801,7 @@ class UIPreview:
             if not label.winfo_exists():
                 logger.debug('Label widget no longer exists, skipping thumbnail update')
                 return
-            
+
             label.config(image=photo, text='')
             label.image = photo  # Keep reference to prevent garbage collection
         except tk.TclError as e:
