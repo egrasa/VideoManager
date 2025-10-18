@@ -20,7 +20,9 @@ if not FFMPEG_AVAILABLE:
 class UIPreview:
     """Displays videos in Grid, List, and Timeline views."""
 
-    GRID_COLS = {400: 1, 600: 2, 900: 3, 1600: 4}
+    # Optimized breakpoints to show 5 columns on standard window size
+    # Width thresholds and corresponding column counts
+    GRID_COLS = {400: 2, 600: 3, 800: 5, 1200: 6, 1600: 7}
 
     def __init__(self, parent: ttk.Frame, on_selection_callback: Callable[[int, Dict], None]):
         self.parent = parent
@@ -198,8 +200,9 @@ class UIPreview:
         # Account for scrollbar width (~17px) and margins
         usable_width = available_width - 30
 
-        # Each column needs: image (160) + padding (10) = 170px minimum
-        thumbnail_width = 160
+        # Each column needs: image (145) + padding (10) = 155px minimum
+        # Larger thumbnails while maintaining 4 per row on standard window
+        thumbnail_width = 145
         column_spacing = 10  # padx=5 on both sides = 10 total
         column_width = thumbnail_width + column_spacing
 
@@ -231,8 +234,8 @@ class UIPreview:
             frame = ttk.Frame(self.grid_scrollable, relief=tk.RAISED, borderwidth=1)
             frame.grid(row=row, column=col, padx=5, pady=5, sticky='ew')
 
-            # Generate and display thumbnail
-            thumb_label = tk.Label(frame, background='#404040', width=160, height=90)
+            # Generate and display thumbnail (145x82 - larger for better visibility)
+            thumb_label = tk.Label(frame, background='#404040', width=145, height=82)
             thumb_label.pack(padx=5, pady=5)
 
             # Generate thumbnail in background
