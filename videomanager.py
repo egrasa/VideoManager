@@ -19,12 +19,13 @@ from tkinter import filedialog, messagebox, ttk
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from video_db import VideoDatabase
 from ui_preview import UIPreview
 from ui_edit import UIEdit
 from ui_player import UIPlayer
+from ui_search import UISearch
 from version import VersionManager
 
 # Setup logging
@@ -84,6 +85,13 @@ class VideoManagerApp:
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
         ttk.Button(toolbar, text='🔄 Refresh', command=self.load_videos).pack(
             side=tk.LEFT, padx=5)
+
+        # Search frame
+        search_container = ttk.Frame(self.root)
+        search_container.pack(fill=tk.X, padx=5, pady=5)
+        
+        self.search = UISearch(search_container, self._on_search_results)
+        self.search.set_search_callback(self._perform_search)
 
         # Main paned window
         main_paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
@@ -249,6 +257,40 @@ class VideoManagerApp:
         menubar.add_cascade(label='Help', menu=help_menu)
         help_menu.add_command(label='About VideoManager', command=self._show_about)
         help_menu.add_command(label='Version Info', command=self._show_version_info)
+
+    def _perform_search(self, search_params: Dict[str, Any]):
+        """Execute search with provided parameters.
+        
+        Args:
+            search_params: Dict with 'query', 'category', 'min_rating', 'search_mode'
+        """
+        results = self.db.search_videos(
+            query=search_params.get('query', ''),
+            category=search_params.get('category'),
+            min_rating=search_params.get('min_rating', 0),
+            search_mode=search_params.get('search_mode', 'all')
+        )
+        
+        self._on_search_results(results)
+        logger.info('Search results: %d videos found', len(results))
+
+    def _on_search_results(self, results: List[Dict[str, Any]]):
+        """Handle search results.
+        
+        Args:
+            results: List of matching video dictionaries
+        """
+        all_videos = self.db.get_all_videos()
+        
+        # Update preview with search results
+        self.preview.load_videos(results)
+        
+        # Update search info label
+        self.search.update_info(len(all_videos), len(results))
+        
+        if not results:
+            messagebox.showinfo('No Results', 'No videos found matching your search criteria.')
+            logger.info('Search returned no results')
 
     def _show_about(self):
         """Show about dialog."""
