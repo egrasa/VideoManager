@@ -79,20 +79,20 @@ class VideoManagerApp:
         toolbar = ttk.Frame(self.root)
         toolbar.pack(fill=tk.X, padx=5, pady=5)
 
-        ttk.Button(toolbar, text='➕ Add Video', command=self.add_video).pack(
-            side=tk.LEFT, padx=5)
-        ttk.Button(toolbar, text='📁 Add Folder', command=self.add_folder).pack(
-            side=tk.LEFT, padx=5)
-        ttk.Button(toolbar, text='🗑️ Delete', command=self.delete_selected).pack(
-            side=tk.LEFT, padx=5)
-        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
-        ttk.Button(toolbar, text='🔄 Refresh', command=self.load_videos).pack(
-            side=tk.LEFT, padx=5)
+        #ttk.Button(toolbar, text='➕ Add Video', command=self.add_video).pack(
+            #side=tk.LEFT, padx=5)
+        #ttk.Button(toolbar, text='📁 Add Folder', command=self.add_folder).pack(
+            #side=tk.LEFT, padx=5)
+        #ttk.Button(toolbar, text='🗑️ Delete', command=self.delete_selected).pack(
+            #side=tk.LEFT, padx=5)
+        #ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
+        #ttk.Button(toolbar, text='🔄 Refresh', command=self.load_videos).pack(
+            #side=tk.LEFT, padx=5)
 
         # Search frame
         search_container = ttk.Frame(self.root)
         search_container.pack(fill=tk.X, padx=5, pady=5)
-        
+
         self.search = UISearch(search_container, self._on_search_results)
         self.search.set_search_callback(self._perform_search)
 
@@ -113,7 +113,7 @@ class VideoManagerApp:
         self.editor = UIEdit(right_frame, self._on_video_save)
 
         # BOTTOM: Player
-        bottom_frame = ttk.LabelFrame(self.root, text='Player', padding=5)
+        bottom_frame = ttk.LabelFrame(self.root, text=' ', padding=5)
         bottom_frame.pack(fill=tk.X, padx=5, pady=5)
 
         self.player = UIPlayer(bottom_frame)
@@ -252,7 +252,9 @@ class VideoManagerApp:
         menubar.add_cascade(label='File', menu=file_menu)
         file_menu.add_command(label='Add Video...', command=self.add_video)
         file_menu.add_command(label='Add Folder...', command=self.add_folder)
+        file_menu.add_command(label='Delete Selected Video', command=self.delete_selected)
         file_menu.add_separator()
+        file_menu.add_command(label='Refresh', command=self.load_videos)
         file_menu.add_command(label='Exit', command=self.root.quit)
 
         # Help menu
@@ -273,7 +275,7 @@ class VideoManagerApp:
             min_rating=search_params.get('min_rating', 0),
             search_mode=search_params.get('search_mode', 'all')
         )
-        
+
         self._on_search_results(results)
         logger.info('Search results: %d videos found', len(results))
 
@@ -284,13 +286,13 @@ class VideoManagerApp:
             results: List of matching video dictionaries
         """
         all_videos = self.db.get_all_videos()
-        
+
         # Update preview with search results
         self.preview.load_videos(results)
-        
+
         # Update search info label
         self.search.update_info(len(all_videos), len(results))
-        
+
         if not results:
             messagebox.showinfo('No Results', 'No videos found matching your search criteria.')
             logger.info('Search returned no results')
