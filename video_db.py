@@ -86,6 +86,31 @@ class VideoDatabase:
         except sqlite3.IntegrityError:
             return None
 
+    def check_duplicate_video(self, filepath: str) -> Optional[Dict[str, Any]]:
+        """Check if a video with the same name and extension already exists.
+        
+        Args:
+            filepath: Full path to video file
+        
+        Returns:
+            Dictionary with existing video info if found, None otherwise
+        """
+        if not os.path.exists(filepath):
+            return None
+        
+        filename = os.path.basename(filepath)
+        
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT * FROM videos WHERE filename = ?
+        ''', (filename,))
+        
+        result = cursor.fetchone()
+        if result:
+            return self._row_to_dict(result, cursor)
+        
+        return None
+
     def get_all_videos(self, category: Optional[str] = None) -> List[Dict[str, Any]]:
         """Retrieve all videos (optionally filtered by category)."""
         cursor = self.conn.cursor()
@@ -129,6 +154,63 @@ class VideoDatabase:
         cursor.execute('DELETE FROM videos WHERE id = ?', (video_id,))
         self.conn.commit()
         return cursor.rowcount > 0
+
+    def search_videos(self, query: str = '', category: Optional[str] = None,
+                     min_rating: int = 0, search_mode: str = 'all') -> List[Dict[str, Any]]:
+        """Search videos by various criteria.
+        
+        Args:
+            query: Search text (default: empty = search all)
+            category: Filter by category (None = all categories)
+            min_rating: Minimum rating filter (0 = all)
+            search_mode: 'title_filename', 'filename', 'title', 'notes', 'all'
+        
+        Returns:
+            List of matching video dictionaries
+        """
+        cursor = self.conn.cursor()
+        
+        # Build query based on search mode
+        where_conditions = []
+        params = []
+        
+        if query:
+            query_param = f'%{query}%'
+            
+            if search_mode == 'title_filename':
+                where_conditions.append('(title LIKE ? OR filename LIKE ?)')
+                params.extend([query_param, query_param])
+            elif search_mode == 'filename':
+                where_conditions.append('filename LIKE ?')
+                params.append(query_param)
+            elif search_mode == 'title':
+                where_conditions.append('title LIKE ?')
+                params.append(query_param)
+            elif search_mode == 'notes':
+                where_conditions.append('notes LIKE ?')
+                params.append(query_param)
+            elif search_mode == 'all':
+                where_conditions.append('(title LIKE ? OR filename LIKE ? OR notes LIKE ? OR category LIKE ?)')
+                params.extend([query_param, query_param, query_param, query_param])
+        
+        # Add category filter
+        if category:
+            where_conditions.append('category = ?')
+            params.append(category)
+        
+        # Add rating filter
+        if min_rating > 0:
+            where_conditions.append('rating >= ?')
+            params.append(min_rating)
+        
+        # Build final query
+        where_clause = ' AND '.join(where_conditions) if where_conditions else '1=1'
+        sql = f'SELECT * FROM videos WHERE {where_clause} ORDER BY title ASC'
+        
+        cursor.execute(sql, params)
+        results = cursor.fetchall()
+        
+        return [self._row_to_dict(row, cursor) for row in results]
 
     def _row_to_dict(self, row: tuple, cursor) -> Dict[str, Any]:
         """Convert database row to dictionary."""
