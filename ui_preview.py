@@ -8,13 +8,15 @@ from pathlib import Path
 import threading
 from PIL import Image, ImageTk
 from thumbnail_generator import ThumbnailGenerator
+from thumbnail_loader import ThumbnailLoader
 
 logger = logging.getLogger(__name__)
 
 # Check if FFmpeg is available
 FFMPEG_AVAILABLE = ThumbnailGenerator.check_ffmpeg_available()
 if not FFMPEG_AVAILABLE:
-    logger.warning("FFmpeg not found in PATH. Thumbnails will show placeholders. Install FFmpeg to see actual thumbnails.")
+    logger.warning("FFmpeg not found in PATH. Thumbnails will show placeholders."
+                   " Install FFmpeg to see actual thumbnails.")
 
 
 class UIPreview:
@@ -38,6 +40,12 @@ class UIPreview:
         # Cache for generated timeline frames (persists during app lifetime)
         # Structure: {video_id: {'frames': [frame_paths], 'duration': duration_sec}}
         self.timeline_cache = {}
+
+        # Initialize asynchronous thumbnail loader (3 worker threads)
+        self.thumbnail_loader = ThumbnailLoader(max_workers=3)
+        
+        # Store references to thumbnail labels for updating
+        self.thumbnail_labels: Dict[str, tk.Label] = {}  # {video_path: tk.Label}
 
         # Create notebook with tabs
         self.notebook = ttk.Notebook(self.parent)
@@ -252,20 +260,16 @@ class UIPreview:
             video_path = video.get('path', '')
             if video_path and Path(video_path).exists():
                 if FFMPEG_AVAILABLE:
-                    try:
-                        thumb_path = ThumbnailGenerator.generate_thumbnail(video_path)
-                        if thumb_path and Path(thumb_path).exists():
-                            # Load and display thumbnail image
-                            img = Image.open(thumb_path)
-                            photo = ImageTk.PhotoImage(img)
-                            thumb_label.config(image=photo, text='')
-                            thumb_label.image = photo
-                            # Keep a reference to prevent garbage collection
-                        else:
-                            thumb_label.config(text='[No thumbnail]', foreground='white')
-                    except (OSError, ValueError) as e:
-                        logger.warning("Error loading thumbnail: %s", e)
-                        thumb_label.config(text='[Error loading]', foreground='white')
+                    # Queue thumbnail for asynchronous loading
+                    self.thumbnail_loader.queue_thumbnail(
+                        video_path,
+                        lambda path, photo, lbl=thumb_label: self._on_thumbnail_loaded(path, photo, lbl)
+                    )
+                    # Show placeholder while loading
+                    placeholder = self.thumbnail_loader.get_placeholder_image()
+                    thumb_label.config(image=placeholder, text='Loading...')
+                    thumb_label.image = placeholder
+                    self.thumbnail_labels[video_path] = thumb_label
                 else:
                     # FFmpeg not available - show placeholder
                     filename = Path(video_path).name
@@ -311,7 +315,7 @@ class UIPreview:
     def _generate_timeline_threaded(self, video: Dict[str, Any]):
         """Generate timeline frames in a separate thread."""
         video_id = video.get('id')
-        
+
         # Check if timeline is already cached
         if video_id in self.timeline_cache:
             cached_data = self.timeline_cache[video_id]
@@ -319,7 +323,7 @@ class UIPreview:
             # Display cached frames immediately without regeneration
             self._display_cached_timeline(video, cached_data['frames'], cached_data['duration'])
             return
-        
+
         # Stop any previous thread
         self.timeline_stop_event.set()
         if self.timeline_generation_thread and self.timeline_generation_thread.is_alive():
@@ -378,7 +382,7 @@ class UIPreview:
                 duration_minutes = duration / 60
                 num_frames = max(1, round(duration_minutes))  # At least 1 frame
                 num_frames = min(num_frames, 120)  # Cap at 120 frames max
-                
+
                 for i in range(num_frames):
                     # Check if thread should stop
                     if self.timeline_stop_event.is_set():
@@ -398,7 +402,8 @@ class UIPreview:
                     if frame_path:
                         frame_paths.append(frame_path)
                         # Update UI immediately with the new frame (progressive display)
-                        self.parent.after(0, self._add_timeline_frame, video, frame_path, i, calculated_duration, num_frames)
+                        self.parent.after(0, self._add_timeline_frame, video, frame_path, i,
+                                          calculated_duration, num_frames)
                     else:
                         failed_frames.append(i)
                         logger.warning("Failed to generate frame %d from %s", i,
@@ -421,7 +426,8 @@ class UIPreview:
                     num_frames=8
                 )
                 # Update UI with all generated frames
-                self.parent.after(0, self._update_timeline_ui, video, frame_paths, calculated_duration)
+                self.parent.after(0, self._update_timeline_ui, video,
+                                  frame_paths, calculated_duration)
                 return
 
             # Cache the generated frames for this video
@@ -436,7 +442,8 @@ class UIPreview:
             # Update UI with final message
             if frame_paths:
                 if calculated_duration > 0:
-                    duration_str = f"{int(calculated_duration // 60)}:{int(calculated_duration % 60):02d}"
+                    duration_str = f"{int(calculated_duration // 60)}:{int(
+                        calculated_duration % 60):02d}"
                 else:
                     duration_str = "0:00"
                 self.parent.after(0, lambda frames=len(frame_paths), dur_str=duration_str:
@@ -460,7 +467,8 @@ class UIPreview:
                 foreground='#ff6b6b'
             ))
 
-    def _display_cached_timeline(self, _video: Dict[str, Any], frame_paths: List[str], duration_sec: float):
+    def _display_cached_timeline(self, _video: Dict[str, Any], frame_paths: List[str],
+                                 duration_sec: float):
         """Display cached timeline frames without regeneration. Called from UI thread."""
         # Clear previous frames
         for widget in self.timeline_scroll_frame.winfo_children():
@@ -487,7 +495,8 @@ class UIPreview:
 
                 # Calculate timestamp
                 if duration_sec > 0:
-                    progress = 0.05 + (i / (len(frame_paths) - 1)) * 0.9 if len(frame_paths) > 1 else 0.5
+                    progress = 0.05 + (i / (len(frame_paths) - 1)) * 0.9 if len(
+                        frame_paths) > 1 else 0.5
                     timestamp_sec = duration_sec * progress
                     minutes = int(timestamp_sec // 60)
                     seconds = int(timestamp_sec % 60)
@@ -547,7 +556,7 @@ class UIPreview:
             foreground='#27ae60'
         )
 
-    def _add_timeline_frame(self, _video: Dict[str, Any], frame_path: str, frame_index: int, 
+    def _add_timeline_frame(self, _video: Dict[str, Any], frame_path: str, frame_index: int,
                            duration_sec: float, total_frames: int):
         """Add a single timeline frame to the UI progressively. Called from UI thread."""
         try:
@@ -559,7 +568,8 @@ class UIPreview:
 
             # Calculate timestamp
             if duration_sec > 0:
-                progress = 0.05 + (frame_index / (total_frames - 1)) * 0.9 if total_frames > 1 else 0.5
+                progress = 0.05 + (frame_index / (total_frames - 1)
+                                   ) * 0.9 if total_frames > 1 else 0.5
                 timestamp_sec = duration_sec * progress
                 minutes = int(timestamp_sec // 60)
                 seconds = int(timestamp_sec % 60)
@@ -752,6 +762,50 @@ class UIPreview:
         elif event.num == 4 or event.delta > 0:
             self.grid_canvas.yview_scroll(-1, 'units')
 
+    def _on_thumbnail_loaded(self, video_path: str, photo, label: tk.Label):
+        """Callback when thumbnail is loaded asynchronously.
+        
+        Args:
+            video_path: Path to the video file
+            photo: PhotoImage object or None if failed
+            label: tk.Label widget to update
+        """
+        try:
+            # Check if widget still exists before updating
+            if not label.winfo_exists():
+                logger.debug('Label widget no longer exists, skipping update')
+                return
+            
+            if photo:
+                # Schedule update on main thread
+                self.parent.after(0, lambda: self._update_thumbnail_on_main_thread(label, photo))
+                logger.debug('Thumbnail loaded for: %s', Path(video_path).name)
+            else:
+                # Thumbnail generation failed
+                self.parent.after(0, lambda: label.config(text='[No thumbnail]', foreground='white') 
+                                          if label.winfo_exists() else None)
+                logger.warning('Failed to load thumbnail for: %s', video_path)
+        except (RuntimeError, ValueError) as e:
+            logger.error('Error in thumbnail callback: %s', e)
+
+    def _update_thumbnail_on_main_thread(self, label: tk.Label, photo):
+        """Update label with thumbnail image on the main thread.
+        
+        Args:
+            label: tk.Label widget to update
+            photo: PhotoImage to display
+        """
+        try:
+            # Check if widget still exists
+            if not label.winfo_exists():
+                logger.debug('Label widget no longer exists, skipping thumbnail update')
+                return
+            
+            label.config(image=photo, text='')
+            label.image = photo  # Keep reference to prevent garbage collection
+        except tk.TclError as e:
+            logger.debug('Label widget no longer exists: %s', e)
+
     def update_categories(self, categories: List[str]):
         """Update available categories (called by app)."""
         # Categories are fixed in requirements
@@ -759,3 +813,13 @@ class UIPreview:
     def generate_timeline(self, video_path: str):
         """Generate timeline thumbnails for video (stub - FFmpeg integration needed)."""
         self.timeline_progress.config(text=f'Timeline for: {video_path}')
+
+    def cleanup(self):
+        """Cleanup resources before closing."""
+        logger.info('Cleaning up UIPreview resources')
+        # Shutdown thumbnail loader
+        if hasattr(self, 'thumbnail_loader'):
+            self.thumbnail_loader.shutdown()
+        # Stop timeline generation
+        if hasattr(self, 'timeline_stop_event'):
+            self.timeline_stop_event.set()
