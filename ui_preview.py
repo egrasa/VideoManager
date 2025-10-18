@@ -133,7 +133,7 @@ class UIPreview:
         )
         self.timeline_progress.pack(pady=10)
 
-        # Timeline canvas with scrollbar
+        # Timeline canvas with scrollbar (vertical scroll with wrapping)
         canvas_frame = ttk.Frame(self.timeline_frame_container)
         canvas_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -141,22 +141,28 @@ class UIPreview:
             canvas_frame,
             bg='#f0f0f0',
             highlightthickness=1,
-            highlightbackground='#cccccc',
-            height=150
+            highlightbackground='#cccccc'
         )
-        scrollbar = ttk.Scrollbar(canvas_frame, orient=tk.HORIZONTAL,
-                                  command=self.timeline_canvas.xview)
+        scrollbar = ttk.Scrollbar(canvas_frame, orient=tk.VERTICAL,
+                                  command=self.timeline_canvas.yview)
 
-        self.timeline_canvas.configure(xscrollcommand=scrollbar.set)
-        self.timeline_canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.timeline_canvas.configure(yscrollcommand=scrollbar.set)
+        self.timeline_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Frame for timeline images
+        # Frame for timeline images (with wrapping layout)
         self.timeline_scroll_frame = tk.Frame(self.timeline_canvas, bg='#f0f0f0')
         self.timeline_canvas.create_window((0, 0), window=self.timeline_scroll_frame, anchor='nw')
 
+        # Bind configure event to update scroll region
+        self.timeline_scroll_frame.bind('<Configure>', self._on_timeline_frame_configure)
+
         # Dictionary to store PhotoImage references
         self.timeline_photos = {}
+
+    def _on_timeline_frame_configure(self, _event):
+        """Update canvas scroll region when timeline frame changes size."""
+        self.timeline_canvas.configure(scrollregion=self.timeline_canvas.bbox('all'))
 
     def load_videos(self, video_data: List[Dict[str, Any]]):
         """Load videos into all views."""
@@ -434,7 +440,8 @@ class UIPreview:
                 except (ValueError, TypeError):
                     duration_float = 0
 
-            # Load and display frames with timestamps
+            # Load and display frames with timestamps (wrapped layout with grid)
+            cols_per_row = 7  # Number of frames per row
             for i, frame_path in enumerate(frame_paths):
                 try:
                     img = Image.open(frame_path)
@@ -456,7 +463,10 @@ class UIPreview:
                         self.timeline_scroll_frame,
                         bg='#f0f0f0'
                     )
-                    frame_container.pack(side=tk.LEFT, padx=2, pady=5)
+                    # Use grid layout to allow wrapping
+                    row = i // cols_per_row
+                    col = i % cols_per_row
+                    frame_container.grid(row=row, column=col, padx=2, pady=5)
 
                     # Create frame button
                     frame_btn = tk.Label(
