@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import ttk
 import threading
 import time
+import vlc
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +32,6 @@ class UIPlayer:
         self.frame = ttk.LabelFrame(self.parent, text='Video Player', padding=10)
         self.frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        # Placeholder for player
-        self.info_label = ttk.Label(
-            self.frame,
-            text='Video Player (VLC integration)\nSelect a video to play',
-            justify=tk.CENTER
-        )
-        self.info_label.pack(fill=tk.BOTH, expand=True, pady=20)
 
         # Control buttons
         control_frame = ttk.Frame(self.frame)
@@ -52,10 +46,39 @@ class UIPlayer:
         self.stop_btn = ttk.Button(control_frame, text='⏹ Stop', command=self.stop)
         self.stop_btn.pack(side=tk.LEFT, padx=5)
 
+        # Placeholder for player
+        self.info_label = ttk.Label(
+            control_frame,
+            text='  Video Player (VLC integration) - Select a video to play  ',
+            justify=tk.CENTER
+        )
+        self.info_label.pack(fill=tk.X, side=tk.LEFT, expand=True, padx=10, pady=5)
+
+        # Volume control (compact, right side)
+        self.mute_btn = ttk.Button(control_frame, text='🔊', command=self._toggle_mute, width=3)
+        self.mute_btn.pack(side=tk.RIGHT, padx=5)
+
+        # Volume slider (small, right side)
+        self.volume_var = tk.IntVar(value=100)
+        self.volume_slider = ttk.Scale(
+            control_frame,
+            from_=0,
+            to=100,
+            variable=self.volume_var,
+            orient=tk.HORIZONTAL,
+            command=self._on_volume_change,
+            length=80
+        )
+        self.volume_slider.pack(side=tk.RIGHT, padx=5)
+
+        # Volume percentage label (right side)
+        self.volume_percent_label = ttk.Label(control_frame, text='100%', width=5)
+        self.volume_percent_label.pack(side=tk.RIGHT, padx=3)
+
         # Progress bar frame with time labels
         progress_frame = ttk.Frame(self.frame)
         progress_frame.pack(fill=tk.X, pady=5, padx=5)
-        
+
         # Current time label (left)
         self.current_time_label = ttk.Label(progress_frame, text='0:00', width=6)
         self.current_time_label.pack(side=tk.LEFT, padx=5)
@@ -78,16 +101,19 @@ class UIPlayer:
 
         # Attempt to import vlc
         try:
-            import vlc
             self.vlc_instance = vlc.Instance()
             self.player = self.vlc_instance.media_list_player_new()
             self.vlc_media_player = self.player.get_media_player()
-            self.info_label.config(text='VLC Player Ready\nSelect a video to play')
+            self.is_muted = False
+            self.previous_volume = 100  # For mute toggle
+            self.info_label.config(text='VLC Player Ready  - Select a video to play')
         except ImportError:
             logger.warning('python-vlc not installed; player will be disabled')
             self.vlc_instance = None
             self.player = None
             self.vlc_media_player = None
+            self.is_muted = False
+            self.previous_volume = 100
 
     def _format_time(self, seconds: float) -> str:
         """Format seconds to MM:SS format.
@@ -123,7 +149,7 @@ class UIPlayer:
                 media_list = self.vlc_instance.media_list_new()
                 media_list.add_media(media)
                 self.player.set_media_list(media_list)
-                
+
                 # Get video duration (requires parsing media)
                 # VLC doesn't provide duration until media is parsed
                 # This will be updated when playback starts
@@ -139,18 +165,19 @@ class UIPlayer:
                     # Get current time and duration
                     current_ms = self.vlc_media_player.get_time()
                     duration_ms = self.vlc_media_player.get_length()
-                    
+
                     if duration_ms > 0:
                         self.total_duration = duration_ms / 1000.0  # Convert to seconds
                         current_sec = current_ms / 1000.0
                         progress = (current_ms / duration_ms) * 100
-                        
+
                         # Update UI (thread-safe)
-                        self.parent.after(0, lambda c=current_sec, p=progress, d=self.total_duration:
+                        self.parent.after(0, lambda c=current_sec, p=progress,
+                                          d=self.total_duration:
                             self._update_ui_position(c, p, d))
                 except (RuntimeError, AttributeError):
                     pass
-            
+
             time.sleep(0.1)  # Update every 100ms
 
     def _update_ui_position(self, current_sec: float, progress: float, duration: float):
@@ -163,7 +190,7 @@ class UIPlayer:
         """
         self.current_time_label.config(text=self._format_time(current_sec))
         self.total_time_label.config(text=self._format_time(duration))
-        
+
         # Only update progress bar if user isn't dragging
         if not self.is_seeking:
             self.progress_var.set(progress)
@@ -178,10 +205,10 @@ class UIPlayer:
             progress = float(value)
             # Set seeking flag to prevent update thread from updating
             self.is_seeking = True
-            
+
             # Calculate time to seek to
             seek_ms = int((progress / 100.0) * self.total_duration * 1000)
-            
+
             try:
                 self.vlc_media_player.set_time(seek_ms)
                 current_sec = seek_ms / 1000.0
@@ -196,8 +223,8 @@ class UIPlayer:
         if self.player:
             try:
                 self.player.play()
-                self.info_label.config(text='Playing: {}'.format(self.current_video_path))
-                
+                self.info_label.config(text=f'Playing: {self.current_video_path}')
+
                 # Start playback update thread if not already running
                 if not self.playback_running:
                     self.playback_running = True
@@ -243,3 +270,52 @@ class UIPlayer:
                 self.current_time_label.config(text=self._format_time(seconds))
             except (RuntimeError, ValueError):
                 logger.exception('Error seeking video')
+
+    def _on_volume_change(self, value: str):
+        """Handle volume slider changes.
+        
+        Args:
+            value: Volume level (0-100)
+        """
+        volume = int(float(value))
+        self.volume_percent_label.config(text=f'{volume}%')
+
+        if self.vlc_media_player:
+            try:
+                self.vlc_media_player.audio_set_volume(volume)
+                self.previous_volume = volume
+
+                # Update mute button icon based on volume
+                if volume == 0:
+                    self.mute_btn.config(text='🔇')
+                elif volume < 50:
+                    self.mute_btn.config(text='🔉')
+                else:
+                    self.mute_btn.config(text='🔊')
+
+                self.is_muted = volume == 0
+            except (RuntimeError, ValueError):
+                logger.exception('Error setting volume')
+
+    def _toggle_mute(self):
+        """Toggle mute on/off."""
+        if self.vlc_media_player:
+            try:
+                if self.is_muted:
+                    # Unmute: restore previous volume
+                    self.volume_var.set(self.previous_volume)
+                    self.vlc_media_player.audio_set_volume(self.previous_volume)
+                    self.volume_percent_label.config(text=f'{self.previous_volume}%')
+                    self.mute_btn.config(text='🔊')
+                    self.is_muted = False
+                else:
+                    # Mute: set volume to 0 and save current volume
+                    if self.volume_var.get() > 0:
+                        self.previous_volume = self.volume_var.get()
+                    self.volume_var.set(0)
+                    self.vlc_media_player.audio_set_volume(0)
+                    self.volume_percent_label.config(text='0%')
+                    self.mute_btn.config(text='🔇')
+                    self.is_muted = True
+            except (RuntimeError, ValueError):
+                logger.exception('Error toggling mute')
