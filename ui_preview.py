@@ -311,6 +311,11 @@ class UIPreview:
         if self.timeline_generation_thread and self.timeline_generation_thread.is_alive():
             self.timeline_generation_thread.join(timeout=1.0)
 
+        # Clear previous frames and timeline data
+        for widget in self.timeline_scroll_frame.winfo_children():
+            widget.destroy()
+        self.timeline_photos.clear()
+
         # Reset stop event and start new thread
         self.timeline_stop_event.clear()
         self.timeline_generation_thread = threading.Thread(
@@ -340,12 +345,12 @@ class UIPreview:
 
         # Show loading message via UI thread
         self.parent.after(0, lambda: self.timeline_progress.config(
-            text='Generating timeline frames (0/8)...',
+            text='Generating timeline frames...',
             foreground='#2c3e50'
         ))
 
         try:
-            # Generate timeline frames with progress callback
+            # Generate timeline frames progressively
             frame_paths = []
             calculated_duration = 0  # Store duration for later use
             failed_frames = []  # Track failed frames for logging
@@ -354,8 +359,12 @@ class UIPreview:
             duration = ThumbnailGenerator.get_video_duration(video_path)
             if duration and duration > 0:
                 calculated_duration = duration
-                # Calculate timestamps for frames
-                num_frames = 8
+                # Calculate number of frames: 60 frames per hour of duration
+                # For a 30 min video: 30 frames, 20 min: 20 frames, 1 hour: 60 frames
+                duration_minutes = duration / 60
+                num_frames = max(1, round(duration_minutes))  # At least 1 frame
+                num_frames = min(num_frames, 120)  # Cap at 120 frames max
+                
                 for i in range(num_frames):
                     # Check if thread should stop
                     if self.timeline_stop_event.is_set():
@@ -374,12 +383,14 @@ class UIPreview:
                     )
                     if frame_path:
                         frame_paths.append(frame_path)
+                        # Update UI immediately with the new frame (progressive display)
+                        self.parent.after(0, self._add_timeline_frame, video, frame_path, i, calculated_duration, num_frames)
                     else:
                         failed_frames.append(i)
                         logger.warning("Failed to generate frame %d from %s", i,
                                        Path(video_path).name)
 
-                    # Update progress via UI thread (always update for better UX)
+                    # Update progress via UI thread
                     progress = int(((i + 1) / num_frames) * 100)
                     self.parent.after(0, lambda p=i+1, max_f=num_frames, pr=progress,
                                       fail=len(failed_frames):
@@ -390,14 +401,34 @@ class UIPreview:
                         )
                     )
             else:
-                # Fallback if duration detection fails
+                # Fallback if duration detection fails - use default 8 frames
                 frame_paths = ThumbnailGenerator.generate_timeline_frames(
                     video_path,
                     num_frames=8
                 )
+                # Update UI with all generated frames
+                self.parent.after(0, self._update_timeline_ui, video, frame_paths, calculated_duration)
+                return
 
-            # Update UI with generated frames (via UI thread)
-            self.parent.after(0, self._update_timeline_ui, video, frame_paths, calculated_duration)
+            # Update UI with final message
+            if frame_paths:
+                if calculated_duration > 0:
+                    duration_str = f"{int(calculated_duration // 60)}:{int(calculated_duration % 60):02d}"
+                else:
+                    duration_str = "0:00"
+                self.parent.after(0, lambda frames=len(frame_paths), dur_str=duration_str:
+                    self.timeline_progress.config(
+                        text=f"Timeline ({frames} frames) - Duration: {dur_str}",
+                        foreground='#27ae60'
+                    )
+                )
+            else:
+                self.parent.after(0, lambda:
+                    self.timeline_progress.config(
+                        text='Could not generate timeline frames',
+                        foreground='#e67e22'
+                    )
+                )
 
         except (OSError, ValueError, KeyError) as e:
             logger.error("Error loading timeline: %s", e)
@@ -405,6 +436,70 @@ class UIPreview:
                 text=f'Error: {err[:50]}',
                 foreground='#ff6b6b'
             ))
+
+    def _add_timeline_frame(self, _video: Dict[str, Any], frame_path: str, frame_index: int, 
+                           duration_sec: float, total_frames: int):
+        """Add a single timeline frame to the UI progressively. Called from UI thread."""
+        try:
+            if not Path(frame_path).exists():
+                return
+
+            img = Image.open(frame_path)
+            photo = ImageTk.PhotoImage(img)
+
+            # Calculate timestamp
+            if duration_sec > 0:
+                progress = 0.05 + (frame_index / (total_frames - 1)) * 0.9 if total_frames > 1 else 0.5
+                timestamp_sec = duration_sec * progress
+                minutes = int(timestamp_sec // 60)
+                seconds = int(timestamp_sec % 60)
+                timestamp_str = f"{minutes}:{seconds:02d}"
+            else:
+                timestamp_str = "0:00"
+
+            # Create container for frame and timestamp
+            frame_container = tk.Frame(
+                self.timeline_scroll_frame,
+                bg='#f0f0f0'
+            )
+            # Grid layout to allow wrapping
+            cols_per_row = 7
+            row = frame_index // cols_per_row
+            col = frame_index % cols_per_row
+            frame_container.grid(row=row, column=col, padx=2, pady=5)
+
+            # Create frame button
+            frame_btn = tk.Label(
+                frame_container,
+                image=photo,
+                bg='#f0f0f0',
+                cursor='hand2',
+                relief=tk.RAISED,
+                borderwidth=1
+            )
+            frame_btn.pack()
+
+            # Add timestamp label below frame
+            time_label = tk.Label(
+                frame_container,
+                text=timestamp_str,
+                bg='#f0f0f0',
+                fg='#2c3e50',
+                font=('Arial', 8, 'bold')
+            )
+            time_label.pack()
+
+            # Keep reference to prevent garbage collection
+            self.timeline_photos[f"frame_{frame_index}"] = photo
+
+            # Update canvas scroll region
+            self.timeline_scroll_frame.update_idletasks()
+            self.timeline_canvas.configure(
+                scrollregion=self.timeline_canvas.bbox('all')
+            )
+
+        except (OSError, ValueError) as e:
+            logger.warning("Error adding timeline frame: %s", e)
 
     def _update_timeline_ui(self, video: Dict[str, Any], frame_paths: List[str],
                             duration_sec: float):
