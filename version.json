@@ -1,0 +1,27 @@
+{
+  "app_version": "1.0.0+20251018",
+  "db_version": "1.1.0",
+  "modules": {
+    "videomanager": "1.0.0",
+    "ui_preview": "1.2.0",
+    "ui_player": "1.1.0",
+    "ui_edit": "1.0.0",
+    "video_db": "1.1.0",
+    "thumbnail_generator": "1.2.0"
+  },
+  "saved_at": "2025-10-18T17:34:26.124587",
+  "changelog": {
+    "1.0.0": {
+      "date": "2025-10-18",
+      "features": [
+        "Initial release",
+        "Grid/List/Timeline video views",
+        "VLC-based video player with interactive timeline",
+        "FFmpeg-based thumbnail generation",
+        "SQLite database for video metadata",
+        "Threading for responsive UI",
+        "Dynamic responsive grid layout"
+      ]
+    }
+  }
+}
