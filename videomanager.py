@@ -56,6 +56,9 @@ class VideoManagerApp:
         self.root.title('VideoManager - Video Organizer')
         self.root.geometry('1400x900')
 
+        # Set up window close handler
+        self.root.protocol('WM_DELETE_WINDOW', self._on_closing)
+
         # Create menu bar
         self._create_menu_bar()
 
@@ -313,6 +316,17 @@ Features:
         """Show version information dialog."""
         version_info = VersionManager.get_version_string()
         messagebox.askokcancel('Version Information', version_info)
+
+    def _on_closing(self):
+        """Handle window close event."""
+        logger.info('Closing VideoManager')
+        # Cleanup resources
+        if hasattr(self, 'preview'):
+            self.preview.cleanup()
+        if hasattr(self, 'db'):
+            self.db.close()
+        logger.info('VideoManager closed')
+        self.root.quit()
 
 
 def main():
