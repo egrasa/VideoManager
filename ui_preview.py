@@ -35,6 +35,10 @@ class UIPreview:
         self.timeline_generation_thread = None
         self.timeline_stop_event = threading.Event()
 
+        # Cache for generated timeline frames (persists during app lifetime)
+        # Structure: {video_id: {'frames': [frame_paths], 'duration': duration_sec}}
+        self.timeline_cache = {}
+
         # Create notebook with tabs
         self.notebook = ttk.Notebook(self.parent)
         self.notebook.pack(fill=tk.BOTH, expand=True)
@@ -306,6 +310,16 @@ class UIPreview:
 
     def _generate_timeline_threaded(self, video: Dict[str, Any]):
         """Generate timeline frames in a separate thread."""
+        video_id = video.get('id')
+        
+        # Check if timeline is already cached
+        if video_id in self.timeline_cache:
+            cached_data = self.timeline_cache[video_id]
+            logger.info("Loading cached timeline for video %d", video_id)
+            # Display cached frames immediately without regeneration
+            self._display_cached_timeline(video, cached_data['frames'], cached_data['duration'])
+            return
+        
         # Stop any previous thread
         self.timeline_stop_event.set()
         if self.timeline_generation_thread and self.timeline_generation_thread.is_alive():
@@ -410,6 +424,15 @@ class UIPreview:
                 self.parent.after(0, self._update_timeline_ui, video, frame_paths, calculated_duration)
                 return
 
+            # Cache the generated frames for this video
+            video_id = video.get('id')
+            if video_id and frame_paths:
+                self.timeline_cache[video_id] = {
+                    'frames': frame_paths,
+                    'duration': calculated_duration
+                }
+                logger.info("Cached %d timeline frames for video %d", len(frame_paths), video_id)
+
             # Update UI with final message
             if frame_paths:
                 if calculated_duration > 0:
@@ -436,6 +459,93 @@ class UIPreview:
                 text=f'Error: {err[:50]}',
                 foreground='#ff6b6b'
             ))
+
+    def _display_cached_timeline(self, _video: Dict[str, Any], frame_paths: List[str], duration_sec: float):
+        """Display cached timeline frames without regeneration. Called from UI thread."""
+        # Clear previous frames
+        for widget in self.timeline_scroll_frame.winfo_children():
+            widget.destroy()
+        self.timeline_photos.clear()
+
+        if not frame_paths:
+            self.timeline_progress.config(
+                text='No cached frames available',
+                foreground='#e67e22'
+            )
+            return
+
+        # Display all cached frames with timestamps
+        cols_per_row = 7
+        for i, frame_path in enumerate(frame_paths):
+            try:
+                if not Path(frame_path).exists():
+                    logger.warning("Cached frame file not found: %s", frame_path)
+                    continue
+
+                img = Image.open(frame_path)
+                photo = ImageTk.PhotoImage(img)
+
+                # Calculate timestamp
+                if duration_sec > 0:
+                    progress = 0.05 + (i / (len(frame_paths) - 1)) * 0.9 if len(frame_paths) > 1 else 0.5
+                    timestamp_sec = duration_sec * progress
+                    minutes = int(timestamp_sec // 60)
+                    seconds = int(timestamp_sec % 60)
+                    timestamp_str = f"{minutes}:{seconds:02d}"
+                else:
+                    timestamp_str = "0:00"
+
+                # Create container for frame and timestamp
+                frame_container = tk.Frame(
+                    self.timeline_scroll_frame,
+                    bg='#f0f0f0'
+                )
+                row = i // cols_per_row
+                col = i % cols_per_row
+                frame_container.grid(row=row, column=col, padx=2, pady=5)
+
+                # Create frame button
+                frame_btn = tk.Label(
+                    frame_container,
+                    image=photo,
+                    bg='#f0f0f0',
+                    cursor='hand2',
+                    relief=tk.RAISED,
+                    borderwidth=1
+                )
+                frame_btn.pack()
+
+                # Add timestamp label
+                time_label = tk.Label(
+                    frame_container,
+                    text=timestamp_str,
+                    bg='#f0f0f0',
+                    fg='#2c3e50',
+                    font=('Arial', 8, 'bold')
+                )
+                time_label.pack()
+
+                # Keep reference
+                self.timeline_photos[f"frame_{i}"] = photo
+
+            except (OSError, ValueError) as e:
+                logger.warning("Error loading cached frame: %s", e)
+
+        # Update canvas scroll region
+        self.timeline_scroll_frame.update_idletasks()
+        self.timeline_canvas.configure(
+            scrollregion=self.timeline_canvas.bbox('all')
+        )
+
+        # Display completion message
+        if duration_sec > 0:
+            duration_str = f"{int(duration_sec // 60)}:{int(duration_sec % 60):02d}"
+        else:
+            duration_str = "0:00"
+        self.timeline_progress.config(
+            text=f"Timeline ({len(frame_paths)} frames - cached) - Duration: {duration_str}",
+            foreground='#27ae60'
+        )
 
     def _add_timeline_frame(self, _video: Dict[str, Any], frame_path: str, frame_index: int, 
                            duration_sec: float, total_frames: int):
