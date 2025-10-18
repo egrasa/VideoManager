@@ -1,0 +1,19 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-10-18",
+  "schema": {
+    "version": "1.0.0",
+    "description": "Initial database schema",
+    "status": "stable",
+    "releaseDate": "2025-10-18"
+  },
+  "migrations": [
+    {
+      "id": "001",
+      "version": "1.0.0",
+      "description": "Create initial tables",
+      "appliedDate": "2025-10-18",
+      "status": "applied"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-10-18",
+  "modules": {
+    "core": {
+      "version": "1.0.0",
+      "description": "Core VideoManager module",
+      "status": "stable",
+      "releaseDate": "2025-10-18"
+    },
+    "player": {
+      "version": "1.0.0",
+      "description": "Video player module",
+      "status": "stable",
+      "releaseDate": "2025-10-18"
+    },
+    "uploader": {
+      "version": "1.0.0",
+      "description": "Video uploader module",
+      "status": "stable",
+      "releaseDate": "2025-10-18"
+    },
+    "transcoder": {
+      "version": "1.0.0",
+      "description": "Video transcoding module",
+      "status": "stable",
+      "releaseDate": "2025-10-18"
+    }
+  }
+}

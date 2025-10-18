@@ -1,0 +1,22 @@
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+.DS_Store
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+
+# Build artifacts
+dist/
+build/
+*.log
+
+# Dependencies (if added later)
+node_modules/
+vendor/
+__pycache__/
+*.pyc
