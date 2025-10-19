@@ -32,7 +32,7 @@ class MiniPlayer:
         # Create floating window
         self.window = tk.Toplevel(parent_root)
         self.window.title('🎬 Mini Player')
-        self.window.geometry('400x140')
+        self.window.geometry('400x100')
         self.window.resizable(False, False)
 
         # Set window to always be on top
@@ -49,7 +49,7 @@ class MiniPlayer:
         self.window.protocol('WM_DELETE_WINDOW', self._on_close)
 
         # Initially hidden
-        self.window.withdraw()
+        #self.window.withdraw()
         self.is_visible = False
 
         logger.info('Mini player created')
@@ -97,17 +97,17 @@ class MiniPlayer:
             justify=tk.CENTER,
             font=('Arial', 9)
         )
-        self.info_label.pack(fill=tk.X, pady=(0, 10))
+        #self.info_label.pack(fill=tk.X, pady=(0, 10))
 
         # Control buttons
         button_frame = ttk.Frame(main_frame)
-        button_frame.pack(fill=tk.X, pady=5)
+        button_frame.pack(fill=tk.X, pady=2)
 
         self.play_btn = ttk.Button(
             button_frame,
             text='▶ Play',
             command=self._on_play,
-            width=8
+            width=10
         )
         self.play_btn.pack(side=tk.LEFT, padx=3)
 
@@ -115,7 +115,7 @@ class MiniPlayer:
             button_frame,
             text='⏸ Pause',
             command=self._on_pause,
-            width=8
+            width=10
         )
         self.pause_btn.pack(side=tk.LEFT, padx=3)
 
@@ -123,33 +123,32 @@ class MiniPlayer:
             button_frame,
             text='⏹ Stop',
             command=self._on_stop,
-            width=8
+            width=10
         )
         self.stop_btn.pack(side=tk.LEFT, padx=3)
 
         # Volume control
         volume_frame = ttk.Frame(main_frame)
-        volume_frame.pack(fill=tk.X, pady=10)
+        volume_frame.pack(fill=tk.X, pady=5)
 
-        ttk.Label(volume_frame, text='🔊', width=2).pack(side=tk.LEFT, padx=3)
+        self.volume_label = ttk.Label(button_frame, text='100%', width=5)
+        self.volume_label.pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(button_frame, text='🔊', width=2).pack(side=tk.LEFT, padx=2)
 
         self.volume_var = tk.IntVar(value=100)
         self.volume_slider = ttk.Scale(
-            volume_frame,
+            button_frame,
             from_=0,
             to=100,
             variable=self.volume_var,
             orient=tk.HORIZONTAL,
-            command=self._on_volume_change
-        )
-        self.volume_slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=3)
-
-        self.volume_label = ttk.Label(volume_frame, text='100%', width=5)
-        self.volume_label.pack(side=tk.LEFT, padx=3)
+            command=self._on_volume_change)
+        self.volume_slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
 
         # Progress bar
         progress_frame = ttk.Frame(main_frame)
-        progress_frame.pack(fill=tk.X, pady=5)
+        progress_frame.pack(fill=tk.X, pady=2)
 
         self.time_label = ttk.Label(progress_frame, text='0:00 / 0:00', font=('Arial', 8))
         self.time_label.pack(side=tk.LEFT, padx=3)
@@ -163,32 +162,23 @@ class MiniPlayer:
             orient=tk.HORIZONTAL,
             command=self._on_progress_change
         )
-        self.progress_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=3)
+        self.progress_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
 
         # Control buttons at bottom
         control_frame = ttk.Frame(main_frame)
-        control_frame.pack(fill=tk.X, pady=5)
+        #control_frame.pack(fill=tk.X, pady=2)
 
-        ttk.Button(
-            control_frame,
-            text='📍 Pin',
-            command=self._toggle_topmost,
-            width=6
-        ).pack(side=tk.LEFT, padx=2)
+        self.pin_button = ttk.Button(control_frame, text='📍 Pin',
+                                     command=self._toggle_topmost, width=6)
+        #self.pin_button.pack(side=tk.LEFT, padx=2)
 
-        ttk.Button(
-            control_frame,
-            text='Refresh',
-            command=self._on_refresh,
-            width=8
-        ).pack(side=tk.LEFT, padx=2)
+        self.refresh_button = ttk.Button(control_frame, text='Refresh',
+                                         command=self._on_refresh, width=8)
+        #self.refresh_button.pack(side=tk.LEFT, padx=2)
 
-        ttk.Button(
-            control_frame,
-            text='×',
-            command=self._on_close,
-            width=3
-        ).pack(side=tk.RIGHT, padx=2)
+        self.close_button = ttk.Button(control_frame, text='×',
+                                       command=self._on_close, width=3)
+        #self.close_button.pack(side=tk.RIGHT, padx=2)
 
     def _on_play(self):
         """Handle play button."""
