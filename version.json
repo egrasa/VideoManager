@@ -2,15 +2,98 @@
   "app_version": "1.0.0+20251018",
   "db_version": "1.1.0",
   "modules": {
-    "videomanager": "1.0.0",
-    "ui_preview": "1.2.0",
-    "ui_player": "1.1.0",
+    "videomanager": "1.4.0",
+    "ui_player": "1.2.0",
+    "ui_mini_player": "1.0.0",
+    "ui_preview": "1.7.0",
+    "ui_search": "1.0.0",
+    "thumbnail_loader": "1.0.0",
     "ui_edit": "1.0.0",
-    "video_db": "1.1.0",
-    "thumbnail_generator": "1.2.0"
+    "video_db": "1.3.0",
+    "thumbnail_generator": "1.3.0"
   },
-  "saved_at": "2025-10-18T17:34:26.124587",
+  "saved_at": "2025-10-19T15:35:19.066741",
   "changelog": {
+    "1.0.0-mp": {
+      "date": "2025-10-19",
+      "module": "ui_mini_player",
+      "features": [
+        "NEW module: MiniPlayer class for floating player window",
+        "Compact 400x150px floating window with always-on-top support",
+        "Essential controls: Play, Pause, Stop buttons",
+        "Volume slider with percentage display (0-100%)",
+        "Progress bar with current/total time display",
+        "Pin button to toggle always-on-top state",
+        "Refresh button to reposition window",
+        "Seamless integration with main player"
+      ]
+    },
+    "1.2.0-up": {
+      "date": "2025-10-19",
+      "module": "ui_player",
+      "features": [
+        "Mini player button (\ud83e\ude9f Mini) in main player controls",
+        "Toggle visibility of floating mini player window",
+        "Callback system for mini player commands (play, pause, stop, volume, seek)",
+        "Real-time sync of playback info with mini player",
+        "Volume sync between main and mini player",
+        "Proper cleanup of mini player on application close",
+        "Logging for all mini player interactions"
+      ]
+    },
+    "1.4.0-vm": {
+      "date": "2025-10-19",
+      "module": "videomanager",
+      "features": [
+        "Mini player resource cleanup on application close",
+        "Improved shutdown sequence for floating windows"
+      ]
+    },
+    "1.3.0-tg": {
+      "date": "2025-10-18",
+      "module": "thumbnail_generator",
+      "features": [
+        "Automatic detection of slow/external storage (Elements, network drives, etc)",
+        "Dynamic timeout adjustment: 30s local, 60s for slow storage",
+        "Intelligent retry logic with exponential backoff for failed frames",
+        "Automatic frame count reduction for slow storage (50% reduction)",
+        "Improved logging for storage type detection and retry attempts",
+        "Better handling of network storage and USB external drives"
+      ]
+    },
+    "1.3.0-vm": {
+      "date": "2025-10-18",
+      "module": "videomanager",
+      "features": [
+        "Async thumbnail loading: minimal UI blocking when loading many videos",
+        "Window close handler for proper resource cleanup",
+        "Improved shutdown sequence for graceful cleanup"
+      ]
+    },
+    "1.7.0": {
+      "date": "2025-10-18",
+      "module": "ui_preview",
+      "features": [
+        "Integrated asynchronous thumbnail loading system",
+        "Non-blocking UI during thumbnail generation (up to 3 parallel workers)",
+        "Placeholder images while thumbnails are loading",
+        "Callback system for smooth thumbnail display as they load",
+        "Added cleanup() method for proper resource management"
+      ]
+    },
+    "1.0.0-tl": {
+      "date": "2025-10-18",
+      "module": "thumbnail_loader",
+      "features": [
+        "NEW module: ThumbnailLoader class for async thumbnail processing",
+        "Worker thread pool (configurable, default 3 workers)",
+        "Request queue for thumbnail loading tasks",
+        "In-memory thumbnail caching to prevent duplicate processing",
+        "Callback system for progress updates",
+        "Graceful shutdown with cleanup",
+        "Performance monitoring: queue size and loading count tracking"
+      ]
+    },
     "1.0.0": {
       "date": "2025-10-18",
       "features": [
@@ -21,6 +104,108 @@
         "SQLite database for video metadata",
         "Threading for responsive UI",
         "Dynamic responsive grid layout"
+      ]
+    },
+    "1.3.0": {
+      "date": "2025-10-18",
+      "module": "ui_preview",
+      "features": [
+        "Grid layout optimization: responsive columns (2-7 per row)",
+        "Thumbnail size increased to 145x82px for better visibility",
+        "Improved breakpoints for better column distribution",
+        "Support for 5 thumbnails per row on standard windows"
+      ]
+    },
+    "1.4.0": {
+      "date": "2025-10-18",
+      "module": "ui_preview",
+      "features": [
+        "Timeline layout refactored: changed from horizontal to vertical scrolling",
+        "Timeline frames now wrap into multiple rows (7 frames per row)",
+        "Added grid-based layout for timeline frames with automatic wrapping",
+        "Improved timeline visualization with better space utilization"
+      ]
+    },
+    "1.5.0": {
+      "date": "2025-10-18",
+      "module": "ui_preview",
+      "features": [
+        "Dynamic timeline frame generation based on video duration (60 frames/hour)",
+        "Progressive frame display: frames appear one-by-one as they are generated",
+        "Adaptive frame count: 5min video = 5 frames, 30min = 30 frames, 1hour = 60 frames",
+        "Non-blocking UI during frame generation",
+        "allowing video playback and app interaction",
+        "Frame cap of 120 frames maximum to manage resource usage"
+      ]
+    },
+    "1.6.0": {
+      "date": "2025-10-18",
+      "module": "ui_preview",
+      "features": [
+        "Timeline frame caching system: frames cached during app session",
+        "Instant loading of previously generated timelines when switching between videos",
+        "Cache persists until app is closed (memory-based, temporary)",
+        "Reduced resource usage when revisiting videos with cached frames",
+        "Automatic cache invalidation on app restart"
+      ]
+    },
+    "1.2.0-db": {
+      "date": "2025-10-18",
+      "module": "video_db",
+      "features": [
+        "Added check_duplicate_video() method for duplicate detection",
+        "Prevents videos with same name and extension from being added",
+        "Returns existing video information when duplicate is found",
+        "Supports both single video and batch folder imports"
+      ]
+    },
+    "1.1.0": {
+      "date": "2025-10-18",
+      "module": "videomanager",
+      "features": [
+        "Duplicate video detection on single video add with user confirmation",
+        "Duplicate video detection on batch folder import (automatic skip)",
+        "Detailed duplicate video information dialog",
+        "Improved add_folder() with duplicate count summary",
+        "Enhanced user feedback with success/skip statistics"
+      ]
+    },
+    "1.2.0": {
+      "date": "2025-10-18",
+      "module": "videomanager",
+      "features": [
+        "Complete video search system with real-time filtering",
+        "Multi-field search: title, filename, notes, all fields",
+        "Filter by category (public, private, ticket, password, special, clip, other)",
+        "Filter by minimum rating (1-5 stars)",
+        "Search history with up to 10 recent searches",
+        "Live search debouncing for performance",
+        "Search results counter and statistics"
+      ]
+    },
+    "1.0.0-search": {
+      "date": "2025-10-18",
+      "module": "ui_search",
+      "features": [
+        "NEW module: UISearch class for search interface",
+        "Search input with dropdown history suggestions",
+        "Multi-criteria filtering: query, category, rating",
+        "Search mode selection (title/filename, filename only, title only, notes, all)",
+        "Real-time search with debouncing",
+        "Clear button to reset search and filters",
+        "Search results information display"
+      ]
+    },
+    "1.3.0-db": {
+      "date": "2025-10-18",
+      "module": "video_db",
+      "features": [
+        "NEW search_videos() method for flexible filtering",
+        "Supports multiple search modes: title, filename, notes, all fields",
+        "Category and rating filtering support",
+        "SQL query optimization for fast searches",
+        "Results ordered by title for consistency",
+        "Compatible with duplicate detection system"
       ]
     }
   }
