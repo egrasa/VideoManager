@@ -1,6 +1,7 @@
 """UIPlayer component: VLC-based video player."""
 
 import logging
+import os
 import tkinter as tk
 from tkinter import ttk
 import threading
@@ -48,7 +49,8 @@ class UIPlayer:
         self.stop_btn.pack(side=tk.LEFT, padx=5)
 
         # Mini player button
-        self.mini_player_btn = ttk.Button(control_frame, text='🪟 Mini', command=self._toggle_mini_player, width=8)
+        self.mini_player_btn = ttk.Button(control_frame, text='🪟 Mini',
+                                          command=self._toggle_mini_player, width=8)
         self.mini_player_btn.pack(side=tk.LEFT, padx=5)
 
         # Placeholder for player
@@ -341,6 +343,7 @@ class UIPlayer:
         self.mini_player.toggle_visibility()
         logger.info('Mini player toggled')
 
+
     def _on_mini_player_command(self, command: str):
         """Handle commands from mini player.
         
@@ -370,7 +373,6 @@ class UIPlayer:
             try:
                 title = ''
                 if self.current_video_path:
-                    import os
                     title = os.path.basename(self.current_video_path)
 
                 current_time = 0
@@ -387,4 +389,3 @@ class UIPlayer:
         """Cleanup resources."""
         if hasattr(self, 'mini_player'):
             self.mini_player.cleanup()
-
