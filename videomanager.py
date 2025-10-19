@@ -325,6 +325,8 @@ Features:
         # Cleanup resources
         if hasattr(self, 'preview'):
             self.preview.cleanup()
+        if hasattr(self, 'player'):
+            self.player.cleanup()
         if hasattr(self, 'db'):
             self.db.close()
         logger.info('VideoManager closed')
