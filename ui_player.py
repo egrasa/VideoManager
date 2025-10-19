@@ -6,6 +6,7 @@ from tkinter import ttk
 import threading
 import time
 import vlc
+from ui_mini_player import MiniPlayer
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,10 @@ class UIPlayer:
 
         self.stop_btn = ttk.Button(control_frame, text='⏹ Stop', command=self.stop)
         self.stop_btn.pack(side=tk.LEFT, padx=5)
+
+        # Mini player button
+        self.mini_player_btn = ttk.Button(control_frame, text='🪟 Mini', command=self._toggle_mini_player, width=8)
+        self.mini_player_btn.pack(side=tk.LEFT, padx=5)
 
         # Placeholder for player
         self.info_label = ttk.Label(
@@ -114,6 +119,13 @@ class UIPlayer:
             self.vlc_media_player = None
             self.is_muted = False
             self.previous_volume = 100
+
+        # Initialize mini player
+        self.mini_player = MiniPlayer(
+            self.parent.winfo_toplevel(),
+            self._on_mini_player_command
+        )
+        logger.info('Mini player initialized')
 
     def _format_time(self, seconds: float) -> str:
         """Format seconds to MM:SS format.
@@ -194,6 +206,10 @@ class UIPlayer:
         # Only update progress bar if user isn't dragging
         if not self.is_seeking:
             self.progress_var.set(progress)
+
+        # Update mini player if visible
+        if self.mini_player and self.mini_player.is_visible:
+            self.mini_player.update_info('', current_sec, duration)
 
     def _on_progress_change(self, value: str):
         """Handle progress bar changes (user dragging).
@@ -319,3 +335,56 @@ class UIPlayer:
                     self.is_muted = True
             except (RuntimeError, ValueError):
                 logger.exception('Error toggling mute')
+
+    def _toggle_mini_player(self):
+        """Toggle mini player visibility."""
+        self.mini_player.toggle_visibility()
+        logger.info('Mini player toggled')
+
+    def _on_mini_player_command(self, command: str):
+        """Handle commands from mini player.
+        
+        Args:
+            command: Command string ('play', 'pause', 'stop', 'volume:N', 'seek:N')
+        """
+        try:
+            if command == 'play':
+                self.play()
+            elif command == 'pause':
+                self.pause()
+            elif command == 'stop':
+                self.stop()
+            elif command.startswith('volume:'):
+                volume = int(command.split(':')[1])
+                self.volume_var.set(volume)
+                self._on_volume_change(str(volume))
+            elif command.startswith('seek:'):
+                progress = float(command.split(':')[1])
+                self._on_progress_change(str(progress))
+        except (ValueError, IndexError) as e:
+            logger.error('Error processing mini player command: %s', e)
+
+    def update_mini_player_info(self):
+        """Update mini player with current playback info."""
+        if self.mini_player and self.mini_player.is_visible:
+            try:
+                title = ''
+                if self.current_video_path:
+                    import os
+                    title = os.path.basename(self.current_video_path)
+
+                current_time = 0
+                total_time = 0
+                if self.vlc_media_player:
+                    current_time = self.vlc_media_player.get_time() / 1000.0
+                    total_time = self.vlc_media_player.get_length() / 1000.0
+
+                self.mini_player.update_info(title, current_time, total_time)
+            except (RuntimeError, AttributeError):
+                pass
+
+    def cleanup(self):
+        """Cleanup resources."""
+        if hasattr(self, 'mini_player'):
+            self.mini_player.cleanup()
+
