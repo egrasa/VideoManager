@@ -74,7 +74,7 @@ class UIEdit:
 
         # Notes
         ttk.Label(self.frame, text='Notes:').grid(row=5, column=0, sticky='nw', pady=5)
-        self.notes_text = tk.Text(self.frame, height=4, width=40)
+        self.notes_text = tk.Text(self.frame, height=8, width=40)
         self.notes_text.grid(row=5, column=1, sticky='we', padx=5)
 
         # Buttons
@@ -96,7 +96,7 @@ class UIEdit:
             video_row: Tuple from database or dict with video data
         """
         self.video_id = video_id
-        
+
         # Handle both dict and tuple formats
         if isinstance(video_row, dict):
             data = video_row
@@ -116,16 +116,16 @@ class UIEdit:
 
         self.title_var.set(data.get('title', ''))
         self.path_var.set(data.get('path', ''))
-        
+
         category = data.get('category', 'public')
         if category and category not in self.categories:
             self.update_categories(self.categories + [category])
         self.category_var.set(category)
-        
+
         rating = int(data.get('rating', 0) or 0)
         self.rating_var.set(rating)
         self._refresh_stars()
-        
+
         self.notes_text.delete('1.0', tk.END)
         self.notes_text.insert('1.0', data.get('notes', '') or '')
 
@@ -194,4 +194,3 @@ class UIEdit:
     def cancel(self):
         """Public API to cancel (used by app)."""
         self._on_cancel()
-
