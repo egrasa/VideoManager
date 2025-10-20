@@ -53,17 +53,17 @@ class UIPreview:
 
         # Grid View
         self.grid_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.grid_frame, text=' _ Grid View  ///  ')
+        self.notebook.add(self.grid_frame, text='  Grid View  ////  ')
         self._build_grid_view()
 
         # List View
         self.list_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.list_frame, text=' _ List View  ///  ')
+        self.notebook.add(self.list_frame, text='  List View  ////  ')
         self._build_list_view()
 
         # Timeline View
         self.timeline_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.timeline_frame, text=' _ Timeline  ///  ')
+        self.notebook.add(self.timeline_frame, text='  Timeline  ////  ')
         self._build_timeline_view()
 
     def _build_grid_view(self):
