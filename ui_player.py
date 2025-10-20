@@ -29,6 +29,7 @@ class UIPlayer:
         self.playback_running = False
         self.total_duration = 0
         self.is_seeking = False
+        self.mini_player = None
 
         # Create player frame
         self.frame = ttk.LabelFrame(self.parent, text='Video Player', padding=10)
@@ -39,19 +40,34 @@ class UIPlayer:
         control_frame = ttk.Frame(self.frame)
         control_frame.pack(fill=tk.X, pady=10)
 
-        self.play_btn = ttk.Button(control_frame, text='▶ Play', command=self.play)
-        self.play_btn.pack(side=tk.LEFT, padx=5)
+        # Play/Pause toggle button
+        self.play_pause_btn = ttk.Button(control_frame, text='▶ Play', width=8,
+                                         command=self._on_play_pause)
+        self.play_pause_btn.pack(side=tk.LEFT, padx=5)
 
-        self.pause_btn = ttk.Button(control_frame, text='⏸ Pause', command=self.pause)
-        self.pause_btn.pack(side=tk.LEFT, padx=5)
+        # Skip backward 10s button
+        self.skip_back_btn = ttk.Button(control_frame, text='⏮ -10s',
+                                        command=self._skip_backward, width=8)
+        self.skip_back_btn.pack(side=tk.LEFT, padx=2)
 
-        self.stop_btn = ttk.Button(control_frame, text='⏹ Stop', command=self.stop)
+        # Skip forward 10s button
+        self.skip_forward_btn = ttk.Button(control_frame, text='+10s ⏭',
+                                           command=self._skip_forward, width=8)
+        self.skip_forward_btn.pack(side=tk.LEFT, padx=2)
+
+        self.stop_btn = ttk.Button(control_frame, text='⏹ Stop', width=8,
+                                   command=self.stop)
         self.stop_btn.pack(side=tk.LEFT, padx=5)
 
         # Mini player button
-        self.mini_player_btn = ttk.Button(control_frame, text='🪟 Mini',
+        self.mini_player_btn = ttk.Button(control_frame, text='🪟 Mini', state="disabled",
                                           command=self._toggle_mini_player, width=8)
-        self.mini_player_btn.pack(side=tk.LEFT, padx=5)
+        self.mini_player_btn.pack(side=tk.LEFT, padx=0)
+
+        # Mini player button initialization
+        self.mini_player_btni = ttk.Button(control_frame, text='🪟',
+                                            command=self.initialize_mini_player, width=4)
+        self.mini_player_btni.pack(side=tk.LEFT, padx=0)
 
         # Placeholder for player
         self.info_label = ttk.Label(
@@ -122,12 +138,22 @@ class UIPlayer:
             self.is_muted = False
             self.previous_volume = 100
 
-        # Initialize mini player
+        # Keyboard shortcuts
+        self.frame.bind('<Left>', lambda e: self._skip_backward())
+        self.frame.bind('<Right>', lambda e: self._skip_forward())
+        self.frame.focus_set()
+
+
+    def initialize_mini_player(self):
+        """Initialize the mini player component."""
         self.mini_player = MiniPlayer(
             self.parent.winfo_toplevel(),
             self._on_mini_player_command
         )
+        self.mini_player_btn.config(state="normal")
+        self.mini_player_btni.config(state="disabled")
         logger.info('Mini player initialized')
+
 
     def _format_time(self, seconds: float) -> str:
         """Format seconds to MM:SS format.
@@ -241,7 +267,8 @@ class UIPlayer:
         if self.player:
             try:
                 self.player.play()
-                self.info_label.config(text=f'Playing: {self.current_video_path}')
+                self.info_label.config(text=f"Playing: {self.current_video_path}")
+                self.play_pause_btn.config(text='⏸ Pause')
 
                 # Start playback update thread if not already running
                 if not self.playback_running:
@@ -260,8 +287,25 @@ class UIPlayer:
             try:
                 self.player.pause()
                 self.info_label.config(text='Paused')
+                self.play_pause_btn.config(text='▶ Play')
             except (RuntimeError, ValueError, OSError):
                 logger.exception('Error pausing video')
+
+    def _on_play_pause(self):
+        """Toggle between play and pause."""
+        if not self.player:
+            return
+
+        try:
+            # Check if currently playing
+            if self.player.is_playing():
+                self.pause()
+                self.play_pause_btn.config(text='▶ Play')
+            else:
+                self.play()
+                self.play_pause_btn.config(text='⏸ Pause')
+        except (RuntimeError, ValueError, OSError):
+            logger.exception('Error toggling play/pause')
 
     def stop(self):
         """Stop video."""
@@ -272,8 +316,31 @@ class UIPlayer:
                 self.info_label.config(text='Stopped')
                 self.progress_var.set(0)
                 self.current_time_label.config(text='0:00')
+                self.play_pause_btn.config(text='▶ Play')
             except (RuntimeError, ValueError, OSError):
                 logger.exception('Error stopping video')
+
+    def _skip_backward(self):
+        """Skip backward 10 seconds."""
+        if self.vlc_media_player and self.total_duration > 0:
+            try:
+                current_time = self.vlc_media_player.get_time() / 1000.0
+                new_time = max(0, current_time - 10)
+                self.seek(new_time)
+                logger.info('Skipped backward to %.1fs', new_time)
+            except (RuntimeError, ValueError, OSError):
+                logger.exception('Error skipping backward')
+
+    def _skip_forward(self):
+        """Skip forward 10 seconds."""
+        if self.vlc_media_player and self.total_duration > 0:
+            try:
+                current_time = self.vlc_media_player.get_time() / 1000.0
+                new_time = min(self.total_duration, current_time + 10)
+                self.seek(new_time)
+                logger.info('Skipped forward to %.1fs', new_time)
+            except (RuntimeError, ValueError, OSError):
+                logger.exception('Error skipping forward')
 
     def seek(self, seconds: float):
         """Seek to a specific time.
@@ -357,6 +424,10 @@ class UIPlayer:
                 self.pause()
             elif command == 'stop':
                 self.stop()
+            elif command == 'skip_backward':
+                self._skip_backward()
+            elif command == 'skip_forward':
+                self._skip_forward()
             elif command.startswith('volume:'):
                 volume = int(command.split(':')[1])
                 self.volume_var.set(volume)
@@ -387,5 +458,5 @@ class UIPlayer:
 
     def cleanup(self):
         """Cleanup resources."""
-        if hasattr(self, 'mini_player'):
+        if hasattr(self, 'mini_player') and self.mini_player is not None:
             self.mini_player.cleanup()
