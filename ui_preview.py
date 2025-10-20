@@ -26,6 +26,17 @@ class UIPreview:
     # Width thresholds and corresponding column counts
     GRID_COLS = {400: 2, 600: 3, 800: 5, 1200: 6, 1600: 7}
 
+    # Category color mapping (RGB hex colors for visual distinction)
+    CATEGORY_COLORS = {
+        'public': '#E8F5E9',      # Light Green
+        'private': '#FFEBEE',      # Light Red
+        'ticket': '#FFF3E0',       # Light Orange
+        'password': '#FCE4EC',     # Light Pink
+        'special': '#F3E5F5',      # Light Purple
+        'clip': '#E0F2F1',         # Light Cyan
+        'other': '#F5F5F5',        # Light Gray
+    }
+
     def __init__(self, parent: ttk.Frame, on_selection_callback: Callable[[int, Dict], None]):
         self.parent = parent
         self.on_selection_callback = on_selection_callback
@@ -102,35 +113,27 @@ class UIPreview:
             self.grid_canvas.configure(scrollregion=self.grid_canvas.bbox('all'))
 
     def _build_list_view(self):
-        """Build the list view with Treeview."""
-        # Columns: Format, Title, Duration, Category, Rating, Notes
-        columns = ('format', 'title', 'duration', 'category', 'rating', 'notes')
-        self.list_treeview = ttk.Treeview(
-            self.list_frame, columns=columns, show='headings', height=15
-        )
-
-        headings = {
-            'format': ('Format', 80),
-            'title': ('Title', 250),
-            'duration': ('Duration', 80),
-            'category': ('Category', 100),
-            'rating': ('Rating', 80),
-            'notes': ('Notes', 200),
-        }
-
-        for col, (heading, width) in headings.items():
-            self.list_treeview.heading(col, text=heading)
-            self.list_treeview.column(col, width=width)
-
-        # Bind selection
-        self.list_treeview.bind('<<TreeviewSelect>>', self._on_list_selection)
-
+        """Build the list view with custom scrollable layout."""
+        # Create canvas with scrollbar for list view
+        self.list_canvas = tk.Canvas(self.list_frame, bg='white', highlightthickness=0)
         scrollbar = ttk.Scrollbar(self.list_frame, orient=tk.VERTICAL,
-                                  command=self.list_treeview.yview)
-        self.list_treeview.configure(yscrollcommand=scrollbar.set)
-
-        self.list_treeview.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                                  command=self.list_canvas.yview)
+        
+        self.list_canvas.configure(yscrollcommand=scrollbar.set)
+        self.list_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.list_scrollable = ttk.Frame(self.list_canvas)
+        self.list_canvas.create_window((0, 0), window=self.list_scrollable, anchor=tk.NW)
+
+        # Bind mousewheel
+        self.list_canvas.bind_all('<MouseWheel>', self._on_mousewheel_list)
+        self.list_canvas.bind_all('<Button-4>', self._on_mousewheel_list)
+        self.list_canvas.bind_all('<Button-5>', self._on_mousewheel_list)
+
+        # Update scrollregion
+        self.list_scrollable.bind('<Configure>', 
+            lambda e: self.list_canvas.configure(scrollregion=self.list_canvas.bbox('all')))
 
     def _build_timeline_view(self):
         """Build the timeline view for frame thumbnails."""
@@ -249,7 +252,12 @@ class UIPreview:
             row = idx // cols
             col = idx % cols
 
-            frame = ttk.Frame(self.grid_scrollable, relief=tk.RAISED, borderwidth=1)
+            # Get category and corresponding color
+            category = video.get('category', 'other')
+            bg_color = self.CATEGORY_COLORS.get(category, self.CATEGORY_COLORS['other'])
+
+            # Use tk.Frame to support background color
+            frame = tk.Frame(self.grid_scrollable, relief=tk.RAISED, borderwidth=2, bg=bg_color)
             frame.grid(row=row, column=col, padx=5, pady=5, sticky='ew')
 
             # Generate and display thumbnail (145x82 - larger for better visibility)
@@ -294,24 +302,56 @@ class UIPreview:
     def _update_list_view(self):
         """Update list view with current videos."""
         # Clear existing items
-        for item in self.list_treeview.get_children():
-            self.list_treeview.delete(item)
+        for widget in self.list_scrollable.winfo_children():
+            widget.destroy()
 
-        # Add videos
+        if not self.video_data:
+            label = ttk.Label(self.list_scrollable, text='No videos loaded')
+            label.pack(pady=20)
+            return
+
+        # Add videos as custom rows
         for video in self.video_data:
-            ext = video['path'].split('.')[-1].upper() if '.' in video['path'] else '?'
-            rating_stars = '★' * video.get('rating', 0) + '☆' * (5 - video.get('rating', 0))
-            notes_preview = video.get('notes', '')[:50]
+            category = video.get('category', 'other')
+            bg_color = self.CATEGORY_COLORS.get(category, self.CATEGORY_COLORS['other'])
 
-            values = (
-                ext,
-                video.get('title', 'Unknown'),
-                video.get('duration', ''),
-                video.get('category', 'public'),
-                rating_stars,
-                notes_preview,
+            # Create row frame with category color background
+            row_frame = tk.Frame(self.list_scrollable, bg=bg_color, relief=tk.RAISED, borderwidth=1)
+            row_frame.pack(fill=tk.X, padx=3, pady=2)
+
+            # Format extension
+            ext = video['path'].split('.')[-1].upper() if '.' in video['path'] else '?'
+            
+            # Format rating
+            rating_stars = '★' * video.get('rating', 0) + '☆' * (5 - video.get('rating', 0))
+            
+            # Format notes preview
+            notes_preview = video.get('notes', '')[:40]
+
+            # Create text for row
+            title = video.get('title', 'Unknown')
+            duration = video.get('duration', '')
+            
+            # Format text with columns
+            row_text = f"{ext:5} | {title:40} | {duration:10} | {category:10} | {rating_stars:5} | {notes_preview}"
+
+            # Create label with formatted text
+            label = tk.Label(
+                row_frame,
+                text=row_text,
+                bg=bg_color,
+                fg='#333333',
+                font=('Courier', 9),
+                anchor=tk.W,
+                justify=tk.LEFT,
+                padx=10,
+                pady=5
             )
-            self.list_treeview.insert('', tk.END, values=values, iid=video['id'])
+            label.pack(fill=tk.X)
+
+            # Bind click event to label for selection
+            label.bind('<Button-1>', lambda e, vid=video['id']: self._on_list_row_click(vid))
+            row_frame.bind('<Button-1>', lambda e, vid=video['id']: self._on_list_row_click(vid))
 
     def _generate_timeline_threaded(self, video: Dict[str, Any]):
         """Generate timeline frames in a separate thread."""
@@ -742,19 +782,15 @@ class UIPreview:
             # Call the selection callback
             self.on_selection_callback(video_id, video)
 
-    def _on_list_selection(self, _):
-        """Handle list view selection."""
-        selection = self.list_treeview.selection()
-
-        if selection:
-            video_id = int(selection[0])
-            self.selected_video_id = video_id
-            video = next((v for v in self.video_data if v['id'] == video_id), None)
-            if video:
-                # Load timeline for this video (threaded)
-                self._generate_timeline_threaded(video)
-                # Call the selection callback
-                self.on_selection_callback(video_id, video)
+    def _on_list_row_click(self, video_id: int):
+        """Handle click on list row."""
+        self.selected_video_id = video_id
+        video = next((v for v in self.video_data if v['id'] == video_id), None)
+        if video:
+            # Load timeline for this video (threaded)
+            self._generate_timeline_threaded(video)
+            # Call the selection callback
+            self.on_selection_callback(video_id, video)
 
     def _on_mousewheel_grid(self, event):
         """Handle mousewheel scroll in grid view."""
@@ -762,6 +798,13 @@ class UIPreview:
             self.grid_canvas.yview_scroll(1, 'units')
         elif event.num == 4 or event.delta > 0:
             self.grid_canvas.yview_scroll(-1, 'units')
+
+    def _on_mousewheel_list(self, event):
+        """Handle mousewheel scroll in list view."""
+        if event.num == 5 or event.delta < 0:
+            self.list_canvas.yview_scroll(1, 'units')
+        elif event.num == 4 or event.delta > 0:
+            self.list_canvas.yview_scroll(-1, 'units')
 
     def _on_thumbnail_loaded(self, video_path: str, photo, label: tk.Label):
         """Callback when thumbnail is loaded asynchronously.
