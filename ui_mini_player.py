@@ -103,21 +103,31 @@ class MiniPlayer:
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill=tk.X, pady=2)
 
-        self.play_btn = ttk.Button(
+        self.play_pause_btn = ttk.Button(
             button_frame,
             text='▶ Play',
-            command=self._on_play,
+            command=self._on_play_pause,
             width=10
         )
-        self.play_btn.pack(side=tk.LEFT, padx=3)
+        self.play_pause_btn.pack(side=tk.LEFT, padx=3)
 
-        self.pause_btn = ttk.Button(
+        # Skip backward button
+        self.skip_back_btn = ttk.Button(
             button_frame,
-            text='⏸ Pause',
-            command=self._on_pause,
-            width=10
+            text='⏮ ',
+            command=self._skip_backward,
+            width=4
         )
-        self.pause_btn.pack(side=tk.LEFT, padx=3)
+        self.skip_back_btn.pack(side=tk.LEFT, padx=2)
+
+        # Skip forward button
+        self.skip_forward_btn = ttk.Button(
+            button_frame,
+            text=' ⏭',
+            command=self._skip_forward,
+            width=4
+        )
+        self.skip_forward_btn.pack(side=tk.LEFT, padx=2)
 
         self.stop_btn = ttk.Button(
             button_frame,
@@ -180,29 +190,47 @@ class MiniPlayer:
                                        command=self._on_close, width=3)
         #self.close_button.pack(side=tk.RIGHT, padx=2)
 
+        # Keyboard shortcuts
+        self.window.bind('<Left>', lambda e: self._skip_backward())
+        self.window.bind('<Right>', lambda e: self._skip_forward())
+
     def _on_play(self):
         """Handle play button."""
-        self.play_btn.config(state=tk.DISABLED)
-        self.pause_btn.config(state=tk.NORMAL)
         self.is_playing = True
         self.on_command('play')
         logger.debug('Mini player: play')
 
     def _on_pause(self):
         """Handle pause button."""
-        self.play_btn.config(state=tk.NORMAL)
-        self.pause_btn.config(state=tk.DISABLED)
         self.is_playing = False
         self.on_command('pause')
         logger.debug('Mini player: pause')
 
+    def _on_play_pause(self):
+        """Toggle between play and pause."""
+        if self.is_playing:
+            self._on_pause()
+            self.play_pause_btn.config(text='▶ Play')
+        else:
+            self._on_play()
+            self.play_pause_btn.config(text='⏸ Pause')
+
     def _on_stop(self):
         """Handle stop button."""
-        self.play_btn.config(state=tk.NORMAL)
-        self.pause_btn.config(state=tk.DISABLED)
         self.is_playing = False
         self.on_command('stop')
+        self.play_pause_btn.config(text='▶ Play')
         logger.debug('Mini player: stop')
+
+    def _skip_backward(self):
+        """Skip backward 10 seconds."""
+        self.on_command('skip_backward')
+        logger.debug('Mini player: skip backward 10s')
+
+    def _skip_forward(self):
+        """Skip forward 10 seconds."""
+        self.on_command('skip_forward')
+        logger.debug('Mini player: skip forward 10s')
 
     def _on_volume_change(self, value: str):
         """Handle volume slider change."""
@@ -289,18 +317,16 @@ class MiniPlayer:
         self.volume_label.config(text=f'{volume}%')
 
     def set_playing_state(self, is_playing: bool):
-        """Update play/pause button states.
+        """Update play/pause button state.
         
         Args:
             is_playing: Whether playback is active
         """
         self.is_playing = is_playing
         if is_playing:
-            self.play_btn.config(state=tk.DISABLED)
-            self.pause_btn.config(state=tk.NORMAL)
+            self.play_pause_btn.config(text='⏸ Pause')
         else:
-            self.play_btn.config(state=tk.NORMAL)
-            self.pause_btn.config(state=tk.DISABLED)
+            self.play_pause_btn.config(text='▶ Play')
 
     @staticmethod
     def _format_time(seconds: float) -> str:
