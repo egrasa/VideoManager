@@ -75,7 +75,7 @@ class VersionManager:
     # Module versions
     MODULE_VERSIONS = {
         'videomanager': VersionInfo(1, 0, 0),
-        'ui_preview': VersionInfo(1, 2, 0),  # Timeline features added
+        'ui_preview': VersionInfo(1, 2, 3),  # Improved mousewheel scroll handling
         'ui_player': VersionInfo(1, 1, 0),   # Interactive timeline added
         'ui_edit': VersionInfo(1, 0, 0),
         'video_db': VersionInfo(1, 1, 0),    # Auto-duration detection
@@ -97,6 +97,36 @@ class VersionManager:
                 'SQLite database for video metadata',
                 'Threading for responsive UI',
                 'Dynamic responsive grid layout',
+            ],
+        },
+        '1.2.2': {
+            'date': '2025-10-21',
+            'module': 'ui_preview',
+            'features': [
+                'NEW: Category color coding system - each category has unique color',
+                'Grid View: Thumbnail frames now display with category background color',
+                'List View: Completely redesigned with custom color-coded rows',
+                'List View: Each row background reflects its category color',
+                'List View: Replaced Treeview with custom scrollable layout',
+                'NEW: Category legend display in both Grid and List views',
+                'Legend shows all 7 categories with their assigned colors',
+                'IMPROVED: Visual distinction between different video categories',
+                'IMPROVED: Better user experience with color-based organization',
+                'Category colors: public (light green), private (light red), ticket (light orange), password (light pink), special (light purple), clip (light cyan), other (light gray)',
+            ],
+        },
+        '1.2.3': {
+            'date': '2025-10-21',
+            'module': 'ui_preview',
+            'features': [
+                'BUGFIX: Improved mousewheel scroll handling in Grid and List views',
+                'Changed from bind_all() to specific bind() for better control',
+                'Added auto-focus functionality when mouse enters canvas area',
+                'Increased scroll speed from 1 to 3 units per wheel event',
+                'Added proper error handling and event propagation control',
+                'Mousewheel scroll now works smoothly in both views',
+                'Fixed issue where scroll might not work without clicking first',
+                'IMPROVED: More responsive scroll experience overall',
             ],
         }
     }
