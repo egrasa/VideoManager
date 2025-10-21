@@ -54,7 +54,7 @@ class VideoManagerApp:
 
         self.root = root
         self.root.title('VideoManager - Video Organizer')
-        self.root.geometry('1400x900')
+        self.root.geometry('1600x900')
 
         # Set up window close handler
         self.root.protocol('WM_DELETE_WINDOW', self._on_closing)
