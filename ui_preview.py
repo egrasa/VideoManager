@@ -28,13 +28,13 @@ class UIPreview:
 
     # Category color mapping (RGB hex colors for visual distinction)
     CATEGORY_COLORS = {
-        'public': '#E8F5E9',      # Light Green
-        'private': '#FFEBEE',      # Light Red
-        'ticket': '#FFF3E0',       # Light Orange
-        'password': '#FCE4EC',     # Light Pink
-        'special': '#F3E5F5',      # Light Purple
-        'clip': '#E0F2F1',         # Light Cyan
-        'other': '#F5F5F5',        # Light Gray
+        'public': "#D9F1DB",      # Light Green
+        'private': "#FFA1A1",      # Light Red
+        'ticket': "#FCE3BB",       # Light Orange
+        'password': "#E0DA7A",     # Light Pink
+        'special': "#E5B3EC",      # Light Purple
+        'clip': "#AAF1EE",         # Light Cyan
+        'other': "#C2BDBD",        # Light Gray
     }
 
     def __init__(self, parent: ttk.Frame, on_selection_callback: Callable[[int, Dict], None]):
@@ -79,6 +79,9 @@ class UIPreview:
 
     def _build_grid_view(self):
         """Build the grid view with responsive layout."""
+        # Add legend frame at the top
+        self._build_legend_frame(self.grid_frame)
+
         self.grid_canvas = tk.Canvas(self.grid_frame, bg='white', highlightthickness=0)
         scrollbar = ttk.Scrollbar(self.grid_frame, orient=tk.VERTICAL,
                                   command=self.grid_canvas.yview)
@@ -90,13 +93,54 @@ class UIPreview:
         self.grid_scrollable = ttk.Frame(self.grid_canvas)
         self.grid_canvas.create_window((0, 0), window=self.grid_scrollable, anchor=tk.NW)
 
-        # Bind mousewheel
-        self.grid_canvas.bind_all('<MouseWheel>', self._on_mousewheel_grid)
-        self.grid_canvas.bind_all('<Button-4>', self._on_mousewheel_grid)
-        self.grid_canvas.bind_all('<Button-5>', self._on_mousewheel_grid)
+        # Bind mousewheel to canvas and make canvas focusable
+        self.grid_canvas.bind('<MouseWheel>', self._on_mousewheel_grid)
+        self.grid_canvas.bind('<Button-4>', self._on_mousewheel_grid)
+        self.grid_canvas.bind('<Button-5>', self._on_mousewheel_grid)
+        
+        # Make canvas focusable and bind mousewheel on focus
+        self.grid_canvas.bind('<Enter>', lambda e: self.grid_canvas.focus_set())
+        self.grid_frame.bind('<Enter>', lambda e: self.grid_canvas.focus_set())
 
         # Bind resize event for dynamic grid recalculation
         self.grid_frame.bind('<Configure>', self._on_grid_frame_resize)
+
+    def _build_legend_frame(self, parent_frame: ttk.Frame):
+        """Build category legend frame.
+        
+        Args:
+            parent_frame: Parent frame to add legend to (grid_frame or list_frame)
+        """
+        legend_frame = tk.Frame(parent_frame, bg='#F0F0F0', relief=tk.RIDGE, borderwidth=1)
+        legend_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        # Title
+        title_label = tk.Label(
+            legend_frame,
+            text='📋 Category Legend:',
+            bg='#F0F0F0',
+            fg='#333333',
+            font=('Arial', 10, 'bold')
+        )
+        title_label.pack(side=tk.LEFT, padx=10, pady=5)
+
+        # Create color boxes for each category
+        for category, color in self.CATEGORY_COLORS.items():
+            # Color box
+            color_box = tk.Frame(legend_frame, bg=color, relief=tk.SUNKEN, borderwidth=2,
+                                width=20, height=20)
+            color_box.pack(side=tk.LEFT, padx=3, pady=5)
+            color_box.pack_propagate(False)
+
+            # Category label
+            cat_label = tk.Label(
+                legend_frame,
+                text=category.capitalize(),
+                bg='#F0F0F0',
+                fg='#333333',
+                font=('Arial', 9)
+            )
+            cat_label.pack(side=tk.LEFT, padx=2, pady=5)
 
     def _on_grid_frame_resize(self, event):
         """Handle grid frame resize events to recalculate columns."""
@@ -114,6 +158,9 @@ class UIPreview:
 
     def _build_list_view(self):
         """Build the list view with custom scrollable layout."""
+        # Add legend frame at the top
+        self._build_legend_frame(self.list_frame)
+        
         # Create canvas with scrollbar for list view
         self.list_canvas = tk.Canvas(self.list_frame, bg='white', highlightthickness=0)
         scrollbar = ttk.Scrollbar(self.list_frame, orient=tk.VERTICAL,
@@ -126,10 +173,14 @@ class UIPreview:
         self.list_scrollable = ttk.Frame(self.list_canvas)
         self.list_canvas.create_window((0, 0), window=self.list_scrollable, anchor=tk.NW)
 
-        # Bind mousewheel
-        self.list_canvas.bind_all('<MouseWheel>', self._on_mousewheel_list)
-        self.list_canvas.bind_all('<Button-4>', self._on_mousewheel_list)
-        self.list_canvas.bind_all('<Button-5>', self._on_mousewheel_list)
+        # Bind mousewheel to canvas and make canvas focusable
+        self.list_canvas.bind('<MouseWheel>', self._on_mousewheel_list)
+        self.list_canvas.bind('<Button-4>', self._on_mousewheel_list)
+        self.list_canvas.bind('<Button-5>', self._on_mousewheel_list)
+        
+        # Make canvas focusable and bind mousewheel on focus
+        self.list_canvas.bind('<Enter>', lambda e: self.list_canvas.focus_set())
+        self.list_frame.bind('<Enter>', lambda e: self.list_canvas.focus_set())
 
         # Update scrollregion
         self.list_scrollable.bind('<Configure>', 
@@ -261,7 +312,7 @@ class UIPreview:
             frame.grid(row=row, column=col, padx=5, pady=5, sticky='ew')
 
             # Generate and display thumbnail (145x82 - larger for better visibility)
-            thumb_label = tk.Label(frame, background='#404040', width=145, height=82)
+            thumb_label = tk.Label(frame, background=bg_color, width=145, height=82)
             thumb_label.pack(padx=5, pady=5)
 
             # Generate thumbnail in background
@@ -282,13 +333,15 @@ class UIPreview:
                 else:
                     # FFmpeg not available - show placeholder
                     filename = Path(video_path).name
-                    thumb_label.config(text=filename, foreground='white', font=('Arial', 8))
+                    thumb_label.config(text=filename, bg=bg_color,
+                                       foreground='white', font=('Arial', 8))
             else:
                 thumb_label.config(text='[Invalid path]', foreground='white')
 
             # Title
             title_text = video.get('title', 'Unknown')[:25]
-            title_label = ttk.Label(frame, text=title_text, justify=tk.CENTER, wraplength=150)
+            title_label = ttk.Label(frame, text=title_text, background=bg_color,
+                                    justify=tk.CENTER, wraplength=150)
             title_label.pack(pady=5)
 
             # Bind click
@@ -340,6 +393,7 @@ class UIPreview:
                 row_frame,
                 text=row_text,
                 bg=bg_color,
+                background=bg_color,
                 fg='#333333',
                 font=('Courier', 9),
                 anchor=tk.W,
@@ -794,17 +848,43 @@ class UIPreview:
 
     def _on_mousewheel_grid(self, event):
         """Handle mousewheel scroll in grid view."""
-        if event.num == 5 or event.delta < 0:
-            self.grid_canvas.yview_scroll(1, 'units')
-        elif event.num == 4 or event.delta > 0:
-            self.grid_canvas.yview_scroll(-1, 'units')
+        # Check if grid canvas is visible and has focus
+        try:
+            if not self.grid_canvas.winfo_exists():
+                return
+            
+            # Determine scroll direction
+            # Windows: event.delta (positive = up, negative = down)
+            # Linux/Unix: event.num (4 = up, 5 = down)
+            if event.num == 5 or event.delta < 0:
+                self.grid_canvas.yview_scroll(3, 'units')
+            elif event.num == 4 or event.delta > 0:
+                self.grid_canvas.yview_scroll(-3, 'units')
+            
+            # Return 'break' to prevent event propagation
+            return 'break'
+        except tk.TclError:
+            pass
 
     def _on_mousewheel_list(self, event):
         """Handle mousewheel scroll in list view."""
-        if event.num == 5 or event.delta < 0:
-            self.list_canvas.yview_scroll(1, 'units')
-        elif event.num == 4 or event.delta > 0:
-            self.list_canvas.yview_scroll(-1, 'units')
+        # Check if list canvas is visible and has focus
+        try:
+            if not self.list_canvas.winfo_exists():
+                return
+            
+            # Determine scroll direction
+            # Windows: event.delta (positive = up, negative = down)
+            # Linux/Unix: event.num (4 = up, 5 = down)
+            if event.num == 5 or event.delta < 0:
+                self.list_canvas.yview_scroll(3, 'units')
+            elif event.num == 4 or event.delta > 0:
+                self.list_canvas.yview_scroll(-3, 'units')
+            
+            # Return 'break' to prevent event propagation
+            return 'break'
+        except tk.TclError:
+            pass
 
     def _on_thumbnail_loaded(self, video_path: str, photo, label: tk.Label):
         """Callback when thumbnail is loaded asynchronously.
